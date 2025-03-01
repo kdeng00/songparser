@@ -1,5 +1,5 @@
 module gitlab.com/kdeng00/songparser
 
-go 1.23.5
+go 1.24
 
-require gitlab.com/kdeng00/icarus-models v0.0.0-20250301195457-d4129841771a // indirect
+require gitlab.com/kdeng00/icarus-models v0.0.0-20250301211149-0dc556b8a5af // indirect
