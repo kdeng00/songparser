@@ -4,3 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+icarus-models = { git = "ssh://git@gitlab.com/kdeng00/icarus-models.git", tag = "v0.1.0" }
