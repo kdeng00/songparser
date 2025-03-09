@@ -2,6 +2,16 @@ stages:
   - build
   - test
 
+before_script:
+  - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+  - eval $(ssh-agent -s)
+  - mv "$SSH_DEPLOY_KEY" gitlab_deploy_key # copies the file from the variable.
+  - chmod 600 gitlab_deploy_key
+  - ssh-add gitlab_deploy_key
+  - mkdir -p ~/.ssh
+  - '[[ -f /.dockerenv ]] && echo -e "Host gitlab.com\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+  - echo "$KNOWN_HOSTS" >> ~/.ssh/known_hosts
+
 build:
   stage: build
   image: rust:1.85
