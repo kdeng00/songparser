@@ -1,0 +1,29 @@
+stages:
+  - build
+  - test
+
+build:
+  stage: build
+  image: rust:1.85
+  script:
+    - cargo build --release
+  artifacts:
+    paths:
+      - target/release/songparser
+    expire_in: 1 week
+  cache:
+    key: "cargo-cache"
+    paths:
+      - target/
+      - ~/.cargo/
+
+test:
+  stage: test
+  image: rust:latest
+  script:
+    - cargo test
+  cache:
+    key: "cargo-cache"
+    paths:
+      - target/
+      - ~/.cargo/
