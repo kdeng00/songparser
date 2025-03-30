@@ -21,7 +21,7 @@ jobs:
           toolchain: 1.85.0
       - run: |
           mkdir -p ~/.ssh
-          echo "${{ secreats.MYREPO_TOKEN }}" > ~/.ssh/gitlab_deploy_key
+          echo "${{ secrets.MYREPO_TOKEN }}" > ~/.ssh/gitlab_deploy_key
           chmod 600 ~/.ssh/gitlab_deploy_key
           ssh-keyscan ${{ vars.MYHOST }} >> ~/.ssh/known_hosts
           eval $(ssh-agent -s)
@@ -39,9 +39,9 @@ jobs:
           toolchain: 1.85.0
       - run: |
           mkdir -p ~/.ssh
-          echo "${{ secreats.MYREPO_TOKEN }}" > ~/.ssh/gitlab_deploy_key
+          echo "${{ secrets.MYREPO_TOKEN }}" > ~/.ssh/gitlab_deploy_key
           chmod 600 ~/.ssh/gitlab_deploy_key
-          ssh-keyscan git.kundeng.us ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLl/OZiKVDxwnyvMxa+rjKvDpKqTxH1GWuGuDPLmENGQMbTVulajZWr9x8Q1cotoJiHZkt7DA5vczcjB/4lwgWA= >> ~/.ssh/known_hosts
+          ssh-keyscan ${{ vars.MYHOST }} >> ~/.ssh/known_hosts
           eval $(ssh-agent -s)
           ssh-add -v ~/.ssh/gitlab_deploy_key
           cargo test
@@ -58,9 +58,9 @@ jobs:
       - run: rustup component add rustfmt
       - run: |
           mkdir -p ~/.ssh
-          echo "${{ secreats.MYREPO_TOKEN }}" > ~/.ssh/gitlab_deploy_key
+          echo "${{ secrets.MYREPO_TOKEN }}" > ~/.ssh/gitlab_deploy_key
           chmod 600 ~/.ssh/gitlab_deploy_key
-          ssh-keyscan git.kundeng.us ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLl/OZiKVDxwnyvMxa+rjKvDpKqTxH1GWuGuDPLmENGQMbTVulajZWr9x8Q1cotoJiHZkt7DA5vczcjB/4lwgWA= >> ~/.ssh/known_hosts
+          ssh-keyscan ${{ vars.MYHOST }} >> ~/.ssh/known_hosts
           eval $(ssh-agent -s)
           ssh-add -v ~/.ssh/gitlab_deploy_key
           cargo fmt --all -- --check
@@ -77,9 +77,9 @@ jobs:
       - run: rustup component add clippy
       - run: |
           mkdir -p ~/.ssh
-          echo "${{ secreats.MYREPO_TOKEN }}" > ~/.ssh/gitlab_deploy_key
+          echo "${{ secrets.MYREPO_TOKEN }}" > ~/.ssh/gitlab_deploy_key
           chmod 600 ~/.ssh/gitlab_deploy_key
-          ssh-keyscan git.kundeng.us ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLl/OZiKVDxwnyvMxa+rjKvDpKqTxH1GWuGuDPLmENGQMbTVulajZWr9x8Q1cotoJiHZkt7DA5vczcjB/4lwgWA= >> ~/.ssh/known_hosts
+          ssh-keyscan ${{ vars.MYHOST }} >> ~/.ssh/known_hosts
           eval $(ssh-agent -s)
           ssh-add -v ~/.ssh/gitlab_deploy_key
           cargo clippy -- -D warnings
@@ -95,9 +95,9 @@ jobs:
           toolchain: 1.85.0
       - run: |
           mkdir -p ~/.ssh
-          echo "${{ secreats.MYREPO_TOKEN }}" > ~/.ssh/gitlab_deploy_key
+          echo "${{ secrets.MYREPO_TOKEN }}" > ~/.ssh/gitlab_deploy_key
           chmod 600 ~/.ssh/gitlab_deploy_key
-          ssh-keyscan git.kundeng.us ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLl/OZiKVDxwnyvMxa+rjKvDpKqTxH1GWuGuDPLmENGQMbTVulajZWr9x8Q1cotoJiHZkt7DA5vczcjB/4lwgWA= >> ~/.ssh/known_hosts
+          ssh-keyscan ${{ vars.MYHOST }} >> ~/.ssh/known_hosts
           eval $(ssh-agent -s)
           ssh-add -v ~/.ssh/gitlab_deploy_key
           cargo build --release
