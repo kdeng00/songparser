@@ -3,7 +3,6 @@ name: Release Tagging
 on:
   push:
     branches:
-      - main
       - devel
     tags:
       - 'v*' # Trigger on tags matching v*
@@ -20,7 +19,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.85.0
+          toolchain: 1.86.0
           components: cargo
 
       - name: Extract Version from Cargo.toml
@@ -42,6 +41,12 @@ jobs:
         run: |
           echo "Printing version"
           echo "Version: ${{ steps.version.outputs.project_tag_release }}"
+
+      - name: Check Branch
+        if: github.ref != 'refs/heads/devel' || github.ref != 'refs/heads/devel' # Replace 'main' with your required branch
+        run: |
+          echo "::error::Release can only be created from the 'main' branch."
+          exit 1
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
