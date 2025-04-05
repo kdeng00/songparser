@@ -3,9 +3,8 @@ name: Release Tagging
 on:
   push:
     branches:
+      - main
       - devel
-    tags:
-      - 'v*' # Trigger on tags matching v*
 
 jobs:
   release:
@@ -41,12 +40,6 @@ jobs:
         run: |
           echo "Printing version"
           echo "Version: ${{ steps.version.outputs.project_tag_release }}"
-
-      - name: Check Branch
-        if: github.ref != 'refs/heads/devel' || github.ref != 'refs/heads/devel' # Replace 'main' with your required branch
-        run: |
-          echo "::error::Release can only be created from the 'main' branch."
-          exit 1
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
