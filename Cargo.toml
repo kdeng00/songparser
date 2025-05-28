@@ -6,4 +6,4 @@ rust-version = "1.86"
 
 [dependencies]
 tokio = { version = "1.44.1", features = ["full"] }
-icarus_models = { git = "ssh://git@git.kundeng.us/phoenix/icarus_models.git", tag = "v0.2.0" }
+icarus_models = { git = "ssh://git@git.kundeng.us/phoenix/icarus_models.git", tag = "v0.4.3" }
