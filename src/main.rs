@@ -1,38 +1,49 @@
-use std::error::Error;
-use tokio::io::AsyncReadExt;
-use tokio::net::{TcpListener, TcpStream};
-use tokio::spawn;
+// use std::error::Error;
+// use tokio::io::AsyncReadExt;
+// use tokio::net::{TcpListener, TcpStream};
+// use tokio::spawn;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let listener = TcpListener::bind("127.0.0.1:8080").await?;
-    println!("API calling service listening on 127.0.0.1:8080");
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let client = reqwest::Client::new();
+    let app_base_url = get_icarus_url().await;
 
     loop {
-        let (stream, addr) = listener.accept().await?;
-        println!("Accepted connection from: {}", addr);
+        println!("Base URL: {}", app_base_url);
 
-        spawn(async move {
-            if let Err(e) = handle_connection(stream).await {
-                eprintln!("Error handling connection from {}: {}", addr, e);
+        // TODO: Update the api/v2/song/queue/next endpoint to only retrieve queued song that is
+        // ready to be processed. Make necessary changes to other endpoints
+
+        let api_url = format!("{}/api/v2/song/queue/next", app_base_url);
+
+        match client.get(api_url).send().await {
+            Ok(response) => {
+                let body = response.text().await?;
+                println!("API response: {}", body);
+                // Process data here...
+
+                // TODO: Parse the response body to a struct
+                // TODO: Get queued song data
+                // TODO: Get queued song's metadata
+                // TODO: Get queued coverart
+                // TODO: Get queued coverart's data
+                // TODO: Apply metadata to the queued song
+                // TODO: Update the queued song with the updated queued song
+                // TODO: Create song
+                // TODO: Create coverart
+                // TODO: Wipe data from queued song
+                // TODO: Wipe data from queued coverart
             }
-        });
-    }
-}
-
-async fn handle_connection(mut stream: TcpStream) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let mut buffer = [0; 1024];
-
-    loop {
-        let n = stream.read(&mut buffer).await?;
-
-        if n == 0 {
-            break; // Connection closed
+            Err(e) => eprintln!("API call failed: {}", e),
         }
 
-        let request_data = String::from_utf8_lossy(&buffer[..n]).trim().to_string();
-        println!("Received request: {}", request_data);
+        println!("Sleeping");
+        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
     }
+    // Ok(())
+}
 
-    Ok(())
+async fn get_icarus_url() -> String {
+    dotenvy::dotenv().ok();
+    std::env::var("ICARUS_BASE_API_URL").expect("Could not find url")
 }
