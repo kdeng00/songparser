@@ -4,7 +4,7 @@ pub const SECONDS_TO_SLEEP: u64 = 5;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let app_base_url = get_icarus_url().await;
+    let app_base_url = icarus_envy::environment::get_icarus_base_api_url().await;
 
     loop {
         println!("Base URL: {}", app_base_url);
@@ -159,9 +159,4 @@ mod api {
             }
         }
     }
-}
-
-async fn get_icarus_url() -> String {
-    dotenvy::dotenv().ok();
-    std::env::var("ICARUS_BASE_API_URL").expect("Could not find url")
 }
