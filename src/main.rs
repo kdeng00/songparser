@@ -1,3 +1,7 @@
+use std::io::Write;
+
+pub const SECONDS_TO_SLEEP: u64 = 5;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app_base_url = get_icarus_url().await;
@@ -15,19 +19,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         if !song_queue_item.data.is_empty() {
                             println!("Song queue item: {:?}", song_queue_item);
 
-                            // Process data here...
+                            println!("Fetching song queue data");
+                            match api::fetch_song_queue_data::get_data(
+                                &app_base_url,
+                                &song_queue_item.data[0].id,
+                            )
+                            .await
+                            {
+                                Ok(response) => {
+                                    // Process data here...
+                                    let all_bytes =
+                                        api::fetch_song_queue_data::response::parse_response(
+                                            response,
+                                        )
+                                        .await?;
 
-                            // TODO: Parse the response body to a struct
-                            // TODO: Get queued song data
-                            // TODO: Get queued song's metadata
-                            // TODO: Get queued coverart
-                            // TODO: Get queued coverart's data
-                            // TODO: Apply metadata to the queued song
-                            // TODO: Update the queued song with the updated queued song
-                            // TODO: Create song
-                            // TODO: Create coverart
-                            // TODO: Wipe data from queued song
-                            // TODO: Wipe data from queued coverart
+                                    let (directory, filename) =
+                                        generate_song_queue_dir_and_filename().await;
+                                    let save_path =
+                                        save_song_to_fs(&directory, &filename, &all_bytes).await;
+
+                                    println!("Saved at: {:?}", save_path);
+
+                                    // TODO: Get queued song's metadata
+                                    // TODO: Get queued coverart
+                                    // TODO: Get queued coverart's data
+                                    // TODO: Apply metadata to the queued song
+                                    // TODO: Update the queued song with the updated queued song
+                                    // TODO: Create song
+                                    // TODO: Create coverart
+                                    // TODO: Wipe data from queued song
+                                    // TODO: Wipe data from queued coverart
+                                }
+                                Err(err) => {
+                                    eprintln!("Error fetching song queue data: {:?}", err);
+                                }
+                            }
                         } else {
                             println!("No data to fetch");
                         }
@@ -41,8 +68,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         println!("Sleeping");
-        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+        tokio::time::sleep(tokio::time::Duration::from_secs(SECONDS_TO_SLEEP)).await;
     }
+}
+
+// TODO: Consider having something like this in icarus_models
+pub async fn generate_song_queue_dir_and_filename() -> (String, String) {
+    let mut song = icarus_models::song::Song::default();
+    song.filename = song.generate_filename(icarus_models::types::MusicTypes::FlacExtension, true);
+
+    song.directory = icarus_envy::environment::get_root_directory().await;
+
+    (song.directory, song.filename)
+}
+
+// TODO: Check to see if this is available in icarus_models
+pub async fn save_song_to_fs(
+    directory: &String,
+    filename: &String,
+    data: &[u8],
+) -> std::path::PathBuf {
+    // TODO: Add function to save bytes to a file in icarus_models
+    // repo
+    let dir = std::path::Path::new(directory);
+    let save_path = dir.join(filename);
+
+    let mut file = std::fs::File::create(&save_path).unwrap();
+    file.write_all(data).unwrap();
+
+    save_path
 }
 
 mod responses {
@@ -72,6 +126,38 @@ mod api {
         let fetch_endpoint = String::from("api/v2/song/queue/next");
         let api_url = format!("{}/{}", base_url, fetch_endpoint);
         client.get(api_url).send().await
+    }
+
+    pub mod fetch_song_queue_data {
+        pub async fn get_data(
+            base_url: &String,
+            id: &uuid::Uuid,
+        ) -> Result<reqwest::Response, reqwest::Error> {
+            let client = reqwest::Client::new();
+            let endpoint = String::from("api/v2/song/queue");
+            let api_url = format!("{}/{}/{}", base_url, endpoint, id);
+            client.get(api_url).send().await
+        }
+
+        pub mod response {
+            use futures::StreamExt;
+
+            pub async fn parse_response(
+                response: reqwest::Response,
+            ) -> Result<Vec<u8>, reqwest::Error> {
+                // TODO: At some point, handle the flow if the size is small or
+                // large
+                let mut byte_stream = response.bytes_stream();
+                let mut all_bytes = Vec::new();
+
+                while let Some(chunk) = byte_stream.next().await {
+                    let chunk = chunk?;
+                    all_bytes.extend_from_slice(&chunk);
+                }
+
+                Ok(all_bytes)
+            }
+        }
     }
 }
 
