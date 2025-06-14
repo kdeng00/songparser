@@ -9,91 +9,102 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         println!("Base URL: {}", app_base_url);
 
-        match api::fetch_next_queue_item(&app_base_url).await {
-            Ok(response) => {
-                match response
-                    .json::<responses::fetch_next_queue_item::SongQueueItem>()
-                    .await
-                {
-                    Ok(song_queue_item) => {
-                        if !song_queue_item.data.is_empty() {
-                            println!("Song queue item: {:?}", song_queue_item);
-                            let song_queue_id = song_queue_item.data[0].id;
+        match is_queue_empty(&app_base_url).await {
+            Ok((empty, song_queue_item)) => {
+                if !empty {
+                    println!("Queue is not empty");
+                    println!("SongQueueItem: {:?}", song_queue_item);
+                    let song_queue_id = song_queue_item.data[0].id;
 
-                            println!("Fetching song queue data");
-                            match api::fetch_song_queue_data::get_data(
-                                &app_base_url,
-                                &song_queue_id,
-                            )
-                            .await
-                            {
-                                Ok(response) => {
-                                    // Process data here...
-                                    let all_bytes =
-                                        api::fetch_song_queue_data::response::parse_response(
-                                            response,
-                                        )
-                                        .await?;
-
-                                    let (directory, filename) =
-                                        generate_song_queue_dir_and_filename().await;
-                                    let save_path =
-                                        save_song_to_fs(&directory, &filename, &all_bytes).await;
-
-                                    println!("Saved at: {:?}", save_path);
-
-                                    match api::get_metadata_queue::get(
-                                        &app_base_url,
-                                        &song_queue_id,
-                                    )
-                                    .await
-                                    {
-                                        Ok(response) => {
-                                            match response.json::<api::get_metadata_queue::response::Response>().await {
-                                                Ok(response) => {
-                                                    let id = &response.data[0].id;
-                                                    let metadata = &response.data[0].metadata;
-                                                    let created_at = &response.data[0].created_at;
-                                                    println!("Id: {:?}", id);
-                                                    println!("Metadata: {:?}", metadata);
-                                                    println!("Created at: {:?}", created_at);
-                                                    // TODO: Get queued coverart
-                                                    // TODO: Get queued coverart's data
-                                                    // TODO: Apply metadata to the queued song (modifying file)
-                                                    // TODO: Update the queued song with the updated queued song
-                                                    // TODO: Create song
-                                                    // TODO: Create coverart
-                                                    // TODO: Wipe data from queued song
-                                                    // TODO: Wipe data from queued coverart
-                                                }
-                                                Err(err) => {
-                                                    eprintln!("Error: {:?}", err);
-                                                }
-                                            }
-                                        }
-                                        Err(err) => {
-                                            eprintln!("Error: {:?}", err);
-                                        }
-                                    }
-                                }
-                                Err(err) => {
-                                    eprintln!("Error fetching song queue data: {:?}", err);
-                                }
-                            }
-                        } else {
-                            println!("No data to fetch");
-                        }
-                    }
-                    Err(err) => {
-                        eprintln!("Error: {:?}", err);
-                    }
+                    // TODO: Do something with the result later
+                    let _ = process_song(&app_base_url, &song_queue_id).await;
+                } else {
+                    println!("Queue is empty");
                 }
             }
-            Err(e) => eprintln!("API call failed: {}", e),
+            Err(err) => {
+                eprintln!("Error checking if queue is empty: {:?}", err);
+            }
         }
 
         println!("Sleeping");
         tokio::time::sleep(tokio::time::Duration::from_secs(SECONDS_TO_SLEEP)).await;
+    }
+}
+
+async fn is_queue_empty(
+    api_url: &String,
+) -> Result<(bool, responses::fetch_next_queue_item::SongQueueItem), reqwest::Error> {
+    match api::fetch_next_queue_item(api_url).await {
+        Ok(response) => {
+            match response
+                .json::<responses::fetch_next_queue_item::SongQueueItem>()
+                .await
+            {
+                Ok(response) => {
+                    if response.data.is_empty() {
+                        Ok((true, response))
+                    } else {
+                        Ok((false, response))
+                    }
+                }
+                Err(err) => Err(err),
+            }
+        }
+        Err(err) => Err(err),
+    }
+}
+
+async fn process_song(api_url: &String, song_queue_id: &uuid::Uuid) -> Result<(), reqwest::Error> {
+    match api::fetch_song_queue_data::get_data(api_url, song_queue_id).await {
+        Ok(response) => {
+            // Process data here...
+            match api::fetch_song_queue_data::response::parse_response(response).await {
+                Ok(all_bytes) => {
+                    let (directory, filename) = generate_song_queue_dir_and_filename().await;
+                    let save_path = save_song_to_fs(&directory, &filename, &all_bytes).await;
+
+                    println!("Saved at: {:?}", save_path);
+
+                    match api::get_metadata_queue::get(api_url, song_queue_id).await {
+                        Ok(response) => {
+                            match response
+                                .json::<api::get_metadata_queue::response::Response>()
+                                .await
+                            {
+                                Ok(response) => {
+                                    let id = &response.data[0].id;
+                                    let metadata = &response.data[0].metadata;
+                                    let created_at = &response.data[0].created_at;
+                                    println!("Id: {:?}", id);
+                                    println!("Metadata: {:?}", metadata);
+                                    println!("Created at: {:?}", created_at);
+                                    // TODO: Get queued coverart
+                                    // TODO: Get queued coverart's data
+                                    // TODO: Apply metadata to the queued song (modifying file)
+                                    // TODO: Update the queued song with the updated queued song
+                                    // TODO: Create song
+                                    // TODO: Create coverart
+                                    // TODO: Wipe data from queued song
+                                    // TODO: Wipe data from queued coverart
+                                    Ok(())
+                                }
+                                Err(err) => {
+                                    eprintln!("Error: {:?}", err);
+                                    Err(err)
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            eprintln!("Error: {:?}", err);
+                            Err(err)
+                        }
+                    }
+                }
+                Err(err) => Err(err),
+            }
+        }
+        Err(err) => Err(err),
     }
 }
 
