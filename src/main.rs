@@ -18,11 +18,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Ok(song_queue_item) => {
                         if !song_queue_item.data.is_empty() {
                             println!("Song queue item: {:?}", song_queue_item);
+                            let song_queue_id = song_queue_item.data[0].id;
 
                             println!("Fetching song queue data");
                             match api::fetch_song_queue_data::get_data(
                                 &app_base_url,
-                                &song_queue_item.data[0].id,
+                                &song_queue_id,
                             )
                             .await
                             {
@@ -41,15 +42,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                     println!("Saved at: {:?}", save_path);
 
-                                    // TODO: Get queued song's metadata
-                                    // TODO: Get queued coverart
-                                    // TODO: Get queued coverart's data
-                                    // TODO: Apply metadata to the queued song
-                                    // TODO: Update the queued song with the updated queued song
-                                    // TODO: Create song
-                                    // TODO: Create coverart
-                                    // TODO: Wipe data from queued song
-                                    // TODO: Wipe data from queued coverart
+                                    match api::get_metadata_queue::get(
+                                        &app_base_url,
+                                        &song_queue_id,
+                                    )
+                                    .await
+                                    {
+                                        Ok(response) => {
+                                            match response.json::<api::get_metadata_queue::response::Response>().await {
+                                                Ok(response) => {
+                                                    let id = &response.data[0].id;
+                                                    let metadata = &response.data[0].metadata;
+                                                    let created_at = &response.data[0].created_at;
+                                                    println!("Id: {:?}", id);
+                                                    println!("Metadata: {:?}", metadata);
+                                                    println!("Created at: {:?}", created_at);
+                                                    // TODO: Get queued coverart
+                                                    // TODO: Get queued coverart's data
+                                                    // TODO: Apply metadata to the queued song (modifying file)
+                                                    // TODO: Update the queued song with the updated queued song
+                                                    // TODO: Create song
+                                                    // TODO: Create coverart
+                                                    // TODO: Wipe data from queued song
+                                                    // TODO: Wipe data from queued coverart
+                                                }
+                                                Err(err) => {
+                                                    eprintln!("Error: {:?}", err);
+                                                }
+                                            }
+                                        }
+                                        Err(err) => {
+                                            eprintln!("Error: {:?}", err);
+                                        }
+                                    }
                                 }
                                 Err(err) => {
                                     eprintln!("Error fetching song queue data: {:?}", err);
@@ -156,6 +181,57 @@ mod api {
                 }
 
                 Ok(all_bytes)
+            }
+        }
+    }
+
+    pub mod get_metadata_queue {
+        pub async fn get(
+            base_url: &String,
+            song_queue_id: &uuid::Uuid,
+        ) -> Result<reqwest::Response, reqwest::Error> {
+            let client = reqwest::Client::new();
+            let endpoint = String::from("api/v2/song/metadata/queue");
+            let api_url = format!("{}/{}", base_url, endpoint);
+            client
+                .get(api_url)
+                .query(&[("song_queue_id", song_queue_id)])
+                .send()
+                .await
+        }
+
+        pub mod response {
+            use serde::{Deserialize, Serialize};
+
+            #[derive(Debug, Deserialize, Serialize)]
+            pub struct Metadata {
+                pub id: uuid::Uuid,
+                pub album: String,
+                pub album_artist: String,
+                pub artist: String,
+                pub disc: i32,
+                pub disc_count: i32,
+                pub duration: i64,
+                pub genre: String,
+                pub title: String,
+                pub track: i32,
+                pub track_count: i32,
+                pub year: i32,
+            }
+
+            #[derive(Debug, Deserialize, Serialize)]
+            pub struct QueueItem {
+                pub id: uuid::Uuid,
+                pub metadata: Metadata,
+                #[serde(with = "time::serde::rfc3339")]
+                pub created_at: time::OffsetDateTime,
+                pub song_queue_id: uuid::Uuid,
+            }
+
+            #[derive(Debug, Deserialize, Serialize)]
+            pub struct Response {
+                pub message: String,
+                pub data: Vec<QueueItem>,
             }
         }
     }
