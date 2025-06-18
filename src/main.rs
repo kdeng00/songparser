@@ -79,14 +79,32 @@ async fn process_song(api_url: &String, song_queue_id: &uuid::Uuid) -> Result<()
                                     println!("Id: {:?}", id);
                                     println!("Metadata: {:?}", metadata);
                                     println!("Created at: {:?}", created_at);
-                                    // TODO: Get queued coverart
-                                    // TODO: Get queued coverart's data
-                                    // TODO: Apply metadata to the queued song (modifying file)
-                                    // TODO: Update the queued song with the updated queued song
-                                    // TODO: Create song
-                                    // TODO: Create coverart
-                                    // TODO: Wipe data from queued song
-                                    // TODO: Wipe data from queued coverart
+
+                                    println!("Getting coverart queue");
+                                    match api::get_coverart_queue::get(api_url, song_queue_id).await
+                                    {
+                                        Ok(response) => {
+                                            match response.json::<api::get_coverart_queue::response::Response>().await {
+                                                Ok(response) => {
+                                                    let coverart_queue_id = &response.data[0].id;
+                                                    println!("Coverart queue Id: {:?}", coverart_queue_id);
+                                                    // TODO: Get queued coverart's data
+                                                    // TODO: Apply metadata to the queued song (modifying file)
+                                                    // TODO: Update the queued song with the updated queued song
+                                                    // TODO: Create song
+                                                    // TODO: Create coverart
+                                                    // TODO: Wipe data from queued song
+                                                    // TODO: Wipe data from queued coverart
+                                                }
+                                                Err(err) => {
+                                                    eprintln!("Error: {:?}", err);
+                                                }
+                                            }
+                                        }
+                                        Err(err) => {
+                                            eprintln!("Error: {:?}", err);
+                                        }
+                                    }
                                     Ok(())
                                 }
                                 Err(err) => {
@@ -243,6 +261,38 @@ mod api {
             pub struct Response {
                 pub message: String,
                 pub data: Vec<QueueItem>,
+            }
+        }
+    }
+
+    pub mod get_coverart_queue {
+        pub async fn get(
+            base_url: &String,
+            song_queue_id: &uuid::Uuid,
+        ) -> Result<reqwest::Response, reqwest::Error> {
+            let client = reqwest::Client::new();
+            let endpoint = String::from("api/v2/coverart/queue");
+            let api_url = format!("{}/{}", base_url, endpoint);
+            client
+                .get(api_url)
+                .query(&[("song_queue_id", song_queue_id)])
+                .send()
+                .await
+        }
+
+        pub mod response {
+            use serde::{Deserialize, Serialize};
+
+            #[derive(Debug, Deserialize, Serialize)]
+            pub struct CoverArtQueue {
+                pub id: uuid::Uuid,
+                pub song_queue_id: uuid::Uuid,
+            }
+
+            #[derive(Debug, Deserialize, Serialize)]
+            pub struct Response {
+                pub message: String,
+                pub data: Vec<CoverArtQueue>,
             }
         }
     }
