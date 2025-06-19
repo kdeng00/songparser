@@ -1172,6 +1172,7 @@ dependencies = [
  "futures",
  "icarus_envy",
  "icarus_models",
+ "rand",
  "reqwest",
  "serde",
  "serde_json",
