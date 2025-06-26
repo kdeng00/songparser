@@ -62,9 +62,9 @@ async fn process_song(api_url: &String, song_queue_id: &uuid::Uuid) -> Result<()
             match api::parsing::parse_response_into_bytes(response).await {
                 Ok(song_bytes) => {
                     let (directory, filename) = generate_song_queue_dir_and_filename().await;
-                    let save_path = save_file_to_fs(&directory, &filename, &song_bytes).await;
+                    let song_queue_path = save_file_to_fs(&directory, &filename, &song_bytes).await;
 
-                    println!("Saved at: {:?}", save_path);
+                    println!("Saved at: {:?}", song_queue_path);
 
                     match api::get_metadata_queue::get(api_url, song_queue_id).await {
                         Ok(response) => {
@@ -93,16 +93,22 @@ async fn process_song(api_url: &String, song_queue_id: &uuid::Uuid) -> Result<()
                                                         Ok(response) => match api::parsing::parse_response_into_bytes(response).await {
                                                             Ok(coverart_queue_bytes) => {
                                                                 let (directory, filename) = generate_coverart_queue_dir_and_filename().await;
-                                                                let save_path = save_file_to_fs(&directory, &filename, &coverart_queue_bytes).await;
+                                                                let coverart_queue_path = save_file_to_fs(&directory, &filename, &coverart_queue_bytes).await;
 
-                                                                println!("Saved coverart queue file at: {:?}", save_path);
+                                                                println!("Saved coverart queue file at: {:?}", coverart_queue_path);
 
-                                                                // TODO: Apply metadata to the queued song (modifying file)
-                                                                // TODO: Update the queued song with the updated queued song
-                                                                // TODO: Create song
-                                                                // TODO: Create coverart
-                                                                // TODO: Wipe data from queued song
-                                                                // TODO: Wipe data from queued coverart
+                                                                match apply_metadata(song_queue_path, coverart_queue_path, metadata).await {
+                                                                    Ok(_) => {
+                                                                        // TODO: Update the queued song with the updated queued song
+                                                                        // TODO: Create song
+                                                                        // TODO: Create coverart
+                                                                        // TODO: Wipe data from queued song
+                                                                        // TODO: Wipe data from queued coverart
+                                                                    }
+                                                                    Err(err) => {
+                                                                        eprintln!("Error: {:?}", err);
+                                                                    }
+                                                                }
                                                             }
                                                             Err(err) => {
                                                                 eprintln!("Error: {:?}", err);
@@ -197,6 +203,161 @@ pub async fn save_file_to_fs(
     file.write_all(data).unwrap();
 
     save_path
+}
+
+pub async fn apply_metadata(
+    song_queue_path: std::path::PathBuf,
+    coverart_queue_path: std::path::PathBuf,
+    metadata: &api::get_metadata_queue::response::Metadata,
+) -> Result<bool, std::io::Error> {
+    // Apply metadata fields
+    let s_path = match song_queue_path.to_str() {
+        Some(val) => String::from(val),
+        None => String::new(),
+    };
+
+    if s_path.is_empty() {
+        println!("Song queue path is empty");
+        return Ok(false);
+    }
+
+    let types = icarus_meta::types::all_metadata_types();
+
+    for t in types {
+        match t {
+            icarus_meta::types::Type::Album => {
+                let meta_type =
+                    icarus_meta::types::MetadataType::from_string(metadata.album.clone());
+                match icarus_meta::meta::metadata::set_meta_value(t, &s_path, meta_type) {
+                    Ok(_) => {}
+                    Err(_err) => {
+                        return Err(_err);
+                    }
+                }
+            }
+            icarus_meta::types::Type::AlbumArtist => {
+                let meta_type =
+                    icarus_meta::types::MetadataType::from_string(metadata.album_artist.clone());
+                match icarus_meta::meta::metadata::set_meta_value(t, &s_path, meta_type) {
+                    Ok(_) => {}
+                    Err(_err) => {
+                        return Err(_err);
+                    }
+                }
+            }
+            icarus_meta::types::Type::Artist => {
+                let meta_type =
+                    icarus_meta::types::MetadataType::from_string(metadata.artist.clone());
+                match icarus_meta::meta::metadata::set_meta_value(t, &s_path, meta_type) {
+                    Ok(_) => {}
+                    Err(_err) => {
+                        return Err(_err);
+                    }
+                }
+            }
+            icarus_meta::types::Type::Date => {
+                // TODO: Do something about this discrepancy
+                let meta_type =
+                    icarus_meta::types::MetadataType::from_string(metadata.year.to_string());
+                match icarus_meta::meta::metadata::set_meta_value(t, &s_path, meta_type) {
+                    Ok(_) => {}
+                    Err(_err) => {
+                        return Err(_err);
+                    }
+                }
+            }
+            icarus_meta::types::Type::Disc => {
+                let meta_type = icarus_meta::types::MetadataType::from_int(metadata.disc);
+                match icarus_meta::meta::metadata::set_meta_value(t, &s_path, meta_type) {
+                    Ok(_) => {}
+                    Err(_err) => {
+                        return Err(_err);
+                    }
+                }
+            }
+            icarus_meta::types::Type::Genre => {
+                let meta_type =
+                    icarus_meta::types::MetadataType::from_string(metadata.genre.clone());
+                match icarus_meta::meta::metadata::set_meta_value(t, &s_path, meta_type) {
+                    Ok(_) => {}
+                    Err(_err) => {
+                        return Err(_err);
+                    }
+                }
+            }
+            icarus_meta::types::Type::Title => {
+                let meta_type =
+                    icarus_meta::types::MetadataType::from_string(metadata.title.clone());
+                match icarus_meta::meta::metadata::set_meta_value(t, &s_path, meta_type) {
+                    Ok(_) => {}
+                    Err(_err) => {
+                        return Err(_err);
+                    }
+                }
+            }
+            icarus_meta::types::Type::Track => {
+                let meta_type = icarus_meta::types::MetadataType::from_int(metadata.track);
+                match icarus_meta::meta::metadata::set_meta_value(t, &s_path, meta_type) {
+                    Ok(_) => {}
+                    Err(_err) => {
+                        return Err(_err);
+                    }
+                }
+            }
+            icarus_meta::types::Type::TrackCount => {
+                let meta_type = icarus_meta::types::MetadataType::from_int(metadata.track_count);
+                match icarus_meta::meta::metadata::set_meta_value(t, &s_path, meta_type) {
+                    Ok(_) => {}
+                    Err(_err) => {
+                        return Err(_err);
+                    }
+                }
+            }
+            icarus_meta::types::Type::DiscCount => {
+                let meta_type = icarus_meta::types::MetadataType::from_int(metadata.disc_count);
+                match icarus_meta::meta::metadata::set_meta_value(t, &s_path, meta_type) {
+                    Ok(_) => {}
+                    Err(_err) => {
+                        return Err(_err);
+                    }
+                }
+            }
+        }
+    }
+
+    // Apply coverart
+    let c_path: String = match coverart_queue_path.to_str() {
+        Some(val) => String::from(val),
+        None => String::new(),
+    };
+
+    match icarus_meta::meta::coverart::contains_coverart(&s_path) {
+        Ok((exists, size)) => {
+            if exists {
+                println!("Coverart exists: {:?} size", size);
+                match icarus_meta::meta::coverart::remove_coverart(&s_path) {
+                    Ok(_data) => {}
+                    Err(err) => {
+                        return Err(err);
+                    }
+                }
+            }
+
+            match icarus_meta::meta::coverart::set_coverart(&s_path, &c_path) {
+                Ok(_data) => {
+                    if _data.is_empty() {
+                        println!("There was an issue");
+                        Ok(false)
+                    } else {
+                        println!("Success in applying coverart to song");
+                        Ok(true)
+                    }
+                }
+                Err(err) => Err(err),
+            }
+        }
+        Err(err) => Err(err),
+    }
 }
 
 mod responses {
