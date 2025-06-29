@@ -11,20 +11,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app_base_url = icarus_envy::environment::get_icarus_base_api_url().await;
 
     loop {
-        println!("Base URL: {}", app_base_url);
+        println!("Base URL: {app_base_url}");
 
         match is_queue_empty(&app_base_url).await {
             Ok((empty, song_queue_item)) => {
                 if !empty {
                     println!("Queue is not empty");
-                    println!("SongQueueItem: {:?}", song_queue_item);
+                    println!("SongQueueItem: {song_queue_item:?}");
                     let song_queue_id = song_queue_item.data[0].id;
 
                     // TODO: Do something with the result later
                     match some_work(&app_base_url, &song_queue_id).await {
                         Ok(_) => {}
                         Err(err) => {
-                            eprintln!("Error: {:?}", err);
+                            eprintln!("Error: {err:?}");
                         }
                     }
                 } else {
@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             Err(err) => {
-                eprintln!("Error checking if queue is empty: {:?}", err);
+                eprintln!("Error checking if queue is empty: {err:?}");
             }
         }
 
@@ -85,7 +85,7 @@ async fn some_work(
                                 .await
                             {
                                 Ok(_inner_response) => {
-                                    println!("Response: {:?}", _inner_response);
+                                    println!("Response: {_inner_response:?}");
                                     Ok(())
                                 }
                                 Err(err) => Err(std::io::Error::other(err.to_string())),
@@ -113,7 +113,7 @@ async fn prep_song(
                     let (directory, filename) = generate_song_queue_dir_and_filename().await;
                     let song_queue_path = save_file_to_fs(&directory, &filename, &song_bytes).await;
 
-                    println!("Saved at: {:?}", song_queue_path);
+                    println!("Saved at: {song_queue_path:?}");
 
                     match api::get_metadata_queue::get(api_url, song_queue_id).await {
                         Ok(response) => {
@@ -125,9 +125,9 @@ async fn prep_song(
                                     let id = &response.data[0].id;
                                     let created_at = &response.data[0].created_at;
                                     let metadata = &response.data[0].metadata;
-                                    println!("Id: {:?}", id);
-                                    println!("Metadata: {:?}", metadata);
-                                    println!("Created at: {:?}", created_at);
+                                    println!("Id: {id:?}");
+                                    println!("Metadata: {metadata:?}");
+                                    println!("Created at: {created_at:?}");
 
                                     println!("Getting coverart queue");
                                     match api::get_coverart_queue::get(api_url, song_queue_id).await
@@ -136,7 +136,7 @@ async fn prep_song(
                                             match response.json::<api::get_coverart_queue::response::Response>().await {
                                                 Ok(response) => {
                                                     let coverart_queue_id = &response.data[0].id;
-                                                    println!("Coverart queue Id: {:?}", coverart_queue_id);
+                                                    println!("Coverart queue Id: {coverart_queue_id:?}");
 
                                                     match api::get_coverart_queue::get_data(api_url, coverart_queue_id).await {
                                                         Ok(response) => match api::parsing::parse_response_into_bytes(response).await {
@@ -144,7 +144,7 @@ async fn prep_song(
                                                                 let (directory, filename) = generate_coverart_queue_dir_and_filename().await;
                                                                 let coverart_queue_path = save_file_to_fs(&directory, &filename, &coverart_queue_bytes).await;
 
-                                                                println!("Saved coverart queue file at: {:?}", coverart_queue_path);
+                                                                println!("Saved coverart queue file at: {coverart_queue_path:?}");
 
                                                                 let c_path = util::path_buf_to_string(&coverart_queue_path);
                                                                 let s_path = util::path_buf_to_string(&song_queue_path);
@@ -350,7 +350,7 @@ pub async fn apply_metadata(
     match icarus_meta::meta::coverart::contains_coverart(song_queue_path) {
         Ok((exists, size)) => {
             if exists {
-                println!("Coverart exists: {:?} size", size);
+                println!("Coverart exists: {size:?} size");
                 match icarus_meta::meta::coverart::remove_coverart(song_queue_path) {
                     Ok(_data) => {}
                     Err(err) => {
@@ -401,7 +401,7 @@ mod api {
     ) -> Result<reqwest::Response, reqwest::Error> {
         let client = reqwest::Client::new();
         let fetch_endpoint = String::from("api/v2/song/queue/next");
-        let api_url = format!("{}/{}", base_url, fetch_endpoint);
+        let api_url = format!("{base_url}/{fetch_endpoint}");
         client.get(api_url).send().await
     }
 
@@ -432,7 +432,7 @@ mod api {
         ) -> Result<reqwest::Response, reqwest::Error> {
             let client = reqwest::Client::new();
             let endpoint = String::from("api/v2/song/queue");
-            let api_url = format!("{}/{}/{}", base_url, endpoint, id);
+            let api_url = format!("{base_url}/{endpoint}/{id}");
             client.get(api_url).send().await
         }
     }
@@ -444,7 +444,7 @@ mod api {
         ) -> Result<reqwest::Response, reqwest::Error> {
             let client = reqwest::Client::new();
             let endpoint = String::from("api/v2/song/metadata/queue");
-            let api_url = format!("{}/{}", base_url, endpoint);
+            let api_url = format!("{base_url}/{endpoint}");
             client
                 .get(api_url)
                 .query(&[("song_queue_id", song_queue_id)])
@@ -495,7 +495,7 @@ mod api {
         ) -> Result<reqwest::Response, reqwest::Error> {
             let client = reqwest::Client::new();
             let endpoint = String::from("api/v2/coverart/queue");
-            let api_url = format!("{}/{}", base_url, endpoint);
+            let api_url = format!("{base_url}/{endpoint}");
             client
                 .get(api_url)
                 .query(&[("song_queue_id", song_queue_id)])
@@ -509,7 +509,7 @@ mod api {
         ) -> Result<reqwest::Response, reqwest::Error> {
             let client = reqwest::Client::new();
             let endpoint = String::from("api/v2/coverart/queue/data");
-            let api_url = format!("{}/{}/{}", base_url, endpoint, coverart_queue_id);
+            let api_url = format!("{base_url}/{endpoint}/{coverart_queue_id}");
             client.get(api_url).send().await
         }
 

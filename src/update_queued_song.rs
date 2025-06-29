@@ -5,7 +5,7 @@ pub async fn update_queued_song(
 ) -> Result<reqwest::Response, reqwest::Error> {
     let client = reqwest::Client::builder().build()?;
 
-    println!("Song path: {:?}", song_path);
+    println!("Song path: {song_path:?}");
 
     // TODO: Make the filename random
     let form = reqwest::multipart::Form::new().part(
@@ -14,8 +14,8 @@ pub async fn update_queued_song(
             .file_name("track01.flac"),
     );
 
-    let url = format!("{}/api/v2/song/queue/{}", base_url, song_queue_id);
-    println!("Url: {:?}", url);
+    let url = format!("{base_url}/api/v2/song/queue/{song_queue_id}");
+    println!("Url: {url:?}");
 
     let request = client.patch(url).multipart(form);
 
