@@ -1255,7 +1255,7 @@ dependencies = [
 
 [[package]]
 name = "songparser"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "futures",
  "icarus_envy",

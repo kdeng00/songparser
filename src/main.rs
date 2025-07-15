@@ -25,8 +25,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     // TODO: Do something with the result later
                     match some_work(&app_base_url, &song_queue_id).await {
                         Ok((
-                            song,
-                            coverart,
+                            _song,
+                            _coverart,
                             (song_queue_id, song_queue_path),
                             (coverart_queue_id, coverart_queue_path),
                         )) => {
@@ -38,12 +38,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             )
                             .await
                             {
-                                Ok(_) => {}
+                                Ok(_) => {
+                                    // TODO: Cleanup files in local filesystem
+                                }
                                 Err(err) => {
                                     eprintln!("Error: {err:?}");
                                 }
                             }
-                            // TODO: Cleanup files in local filesystem
                         }
                         Err(err) => {
                             eprintln!("Error: {err:?}");
@@ -73,10 +74,25 @@ async fn wipe_data_from_queues(
             .json::<the_rest::wipe_data::song_queue::response::Response>()
             .await
         {
-            Ok(_resp) => {
-                println!("Wiped data from song queue");
-                Ok(())
-            }
+            Ok(_resp) => match the_rest::wipe_data::coverart_queue::wipe_data(
+                app_base_url,
+                coverart_queue_id,
+            )
+            .await
+            {
+                Ok(inner_response) => match inner_response
+                    .json::<the_rest::wipe_data::coverart_queue::response::Response>()
+                    .await
+                {
+                    Ok(_inner_resp) => {
+                        println!("Wiped data from CoverArt queue");
+                        println!("Resp: {_inner_resp:?}");
+                        Ok(())
+                    }
+                    Err(err) => Err(std::io::Error::other(err.to_string())),
+                },
+                Err(err) => Err(std::io::Error::other(err.to_string())),
+            },
             Err(err) => Err(std::io::Error::other(err.to_string())),
         },
         Err(err) => Err(std::io::Error::other(err.to_string())),

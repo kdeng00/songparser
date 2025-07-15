@@ -99,4 +99,27 @@ pub mod wipe_data {
         }
     }
     // TODO: Wipe data from queued coverart
+    pub mod coverart_queue {
+        pub async fn wipe_data(
+            base_url: &String,
+            coverart_queue_id: &uuid::Uuid,
+        ) -> Result<reqwest::Response, reqwest::Error> {
+            let client = reqwest::Client::builder().build()?;
+            let url = format!("{base_url}/api/v2/coverart/queue/data/wipe");
+            let payload = serde_json::json!({
+                "coverart_queue_id": coverart_queue_id
+            });
+            let request = client.patch(url).json(&payload);
+
+            request.send().await
+        }
+
+        pub mod response {
+            #[derive(Debug, serde::Deserialize, serde::Serialize)]
+            pub struct Response {
+                pub message: String,
+                pub data: Vec<uuid::Uuid>,
+            }
+        }
+    }
 }
