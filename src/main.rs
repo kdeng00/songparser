@@ -1,3 +1,5 @@
+pub mod api;
+pub mod responses;
 pub mod the_rest;
 pub mod update_queued_song;
 pub mod util;
@@ -69,7 +71,7 @@ async fn some_work(
     song_queue_id: &uuid::Uuid,
 ) -> Result<(), std::io::Error> {
     match prep_song(app_base_url, song_queue_id).await {
-        Ok((song_queue_path, coverart_queue_path, metadata)) => {
+        Ok((song_queue_path, coverart_queue_path, metadata, coverart_queue_id)) => {
             match apply_metadata(&song_queue_path, &coverart_queue_path, &metadata).await {
                 Ok(_applied) => {
                     match update_queued_song::update_queued_song(
@@ -86,7 +88,43 @@ async fn some_work(
                             {
                                 Ok(_inner_response) => {
                                     println!("Response: {_inner_response:?}");
-                                    Ok(())
+
+                                    // TODO: Do not hard code this. Check if one of the existing
+                                    // endpoints already have the user_id
+                                    let user_id = uuid::Uuid::new_v4();
+                                    // TODO: Place this somewhere else
+                                    let song_type = String::from("flac");
+                                    // Err(std::io::Error::other(err.to_string()))
+                                    match the_rest::create_song::create(
+                                        app_base_url,
+                                        &metadata,
+                                        &user_id,
+                                        &song_type,
+                                    )
+                                    .await
+                                    {
+                                        Ok(response) => match response
+                                            .json::<the_rest::create_song::response::Response>()
+                                            .await
+                                        {
+                                            Ok(resp) => {
+                                                println!("Response: {resp:?}");
+
+                                                let song = &resp.data[0];
+                                                let url = format!("{app_base_url}/api/v2/coverart");
+                                                let payload = serde_json::json!({
+                                                    "song_id": &song.id,
+                                                    "coverart_queue_id": &coverart_queue_id,
+                                                });
+                                                println!("Payload: {payload:?}");
+                                                println!("Url: {url:?}");
+                                                // println!("Response json: {:?}", response.text().await);
+                                                Ok(())
+                                            }
+                                            Err(err) => Err(std::io::Error::other(err.to_string())),
+                                        },
+                                        Err(err) => Err(std::io::Error::other(err.to_string())),
+                                    }
                                 }
                                 Err(err) => Err(std::io::Error::other(err.to_string())),
                             }
@@ -104,7 +142,15 @@ async fn some_work(
 async fn prep_song(
     api_url: &String,
     song_queue_id: &uuid::Uuid,
-) -> Result<(String, String, api::get_metadata_queue::response::Metadata), reqwest::Error> {
+) -> Result<
+    (
+        String,
+        String,
+        api::get_metadata_queue::response::Metadata,
+        uuid::Uuid,
+    ),
+    reqwest::Error,
+> {
     match api::fetch_song_queue_data::get_data(api_url, song_queue_id).await {
         Ok(response) => {
             // Process data here...
@@ -148,7 +194,7 @@ async fn prep_song(
 
                                                                 let c_path = util::path_buf_to_string(&coverart_queue_path);
                                                                 let s_path = util::path_buf_to_string(&song_queue_path);
-                                                                Ok((s_path, c_path, metadata.clone()))
+                                                                Ok((s_path, c_path, metadata.clone(), *coverart_queue_id))
                                                             }
                                                             Err(err) => {
                                                                 Err(err)
@@ -373,160 +419,5 @@ pub async fn apply_metadata(
             }
         }
         Err(err) => Err(err),
-    }
-}
-
-mod responses {
-    pub mod fetch_next_queue_item {
-        use serde::{Deserialize, Serialize};
-
-        #[derive(Debug, Deserialize, Serialize)]
-        pub struct QueueItem {
-            pub id: uuid::Uuid,
-            pub filename: String,
-            pub status: String,
-        }
-
-        #[derive(Debug, Deserialize, Serialize)]
-        pub struct SongQueueItem {
-            pub message: String,
-            pub data: Vec<QueueItem>,
-        }
-    }
-}
-
-mod api {
-    pub async fn fetch_next_queue_item(
-        base_url: &String,
-    ) -> Result<reqwest::Response, reqwest::Error> {
-        let client = reqwest::Client::new();
-        let fetch_endpoint = String::from("api/v2/song/queue/next");
-        let api_url = format!("{base_url}/{fetch_endpoint}");
-        client.get(api_url).send().await
-    }
-
-    pub mod parsing {
-        use futures::StreamExt;
-
-        pub async fn parse_response_into_bytes(
-            response: reqwest::Response,
-        ) -> Result<Vec<u8>, reqwest::Error> {
-            // TODO: At some point, handle the flow if the size is small or
-            // large
-            let mut byte_stream = response.bytes_stream();
-            let mut all_bytes = Vec::new();
-
-            while let Some(chunk) = byte_stream.next().await {
-                let chunk = chunk?;
-                all_bytes.extend_from_slice(&chunk);
-            }
-
-            Ok(all_bytes)
-        }
-    }
-
-    pub mod fetch_song_queue_data {
-        pub async fn get_data(
-            base_url: &String,
-            id: &uuid::Uuid,
-        ) -> Result<reqwest::Response, reqwest::Error> {
-            let client = reqwest::Client::new();
-            let endpoint = String::from("api/v2/song/queue");
-            let api_url = format!("{base_url}/{endpoint}/{id}");
-            client.get(api_url).send().await
-        }
-    }
-
-    pub mod get_metadata_queue {
-        pub async fn get(
-            base_url: &String,
-            song_queue_id: &uuid::Uuid,
-        ) -> Result<reqwest::Response, reqwest::Error> {
-            let client = reqwest::Client::new();
-            let endpoint = String::from("api/v2/song/metadata/queue");
-            let api_url = format!("{base_url}/{endpoint}");
-            client
-                .get(api_url)
-                .query(&[("song_queue_id", song_queue_id)])
-                .send()
-                .await
-        }
-
-        pub mod response {
-            use serde::{Deserialize, Serialize};
-
-            #[derive(Clone, Debug, Deserialize, Serialize)]
-            pub struct Metadata {
-                pub song_queue_id: uuid::Uuid,
-                pub album: String,
-                pub album_artist: String,
-                pub artist: String,
-                pub disc: i32,
-                pub disc_count: i32,
-                pub duration: i64,
-                pub genre: String,
-                pub title: String,
-                pub track: i32,
-                pub track_count: i32,
-                pub year: i32,
-            }
-
-            #[derive(Debug, Deserialize, Serialize)]
-            pub struct QueueItem {
-                pub id: uuid::Uuid,
-                pub metadata: Metadata,
-                #[serde(with = "time::serde::rfc3339")]
-                pub created_at: time::OffsetDateTime,
-                pub song_queue_id: uuid::Uuid,
-            }
-
-            #[derive(Debug, Deserialize, Serialize)]
-            pub struct Response {
-                pub message: String,
-                pub data: Vec<QueueItem>,
-            }
-        }
-    }
-
-    pub mod get_coverart_queue {
-        pub async fn get(
-            base_url: &String,
-            song_queue_id: &uuid::Uuid,
-        ) -> Result<reqwest::Response, reqwest::Error> {
-            let client = reqwest::Client::new();
-            let endpoint = String::from("api/v2/coverart/queue");
-            let api_url = format!("{base_url}/{endpoint}");
-            client
-                .get(api_url)
-                .query(&[("song_queue_id", song_queue_id)])
-                .send()
-                .await
-        }
-
-        pub async fn get_data(
-            base_url: &String,
-            coverart_queue_id: &uuid::Uuid,
-        ) -> Result<reqwest::Response, reqwest::Error> {
-            let client = reqwest::Client::new();
-            let endpoint = String::from("api/v2/coverart/queue/data");
-            let api_url = format!("{base_url}/{endpoint}/{coverart_queue_id}");
-            client.get(api_url).send().await
-        }
-
-        pub mod response {
-            use serde::{Deserialize, Serialize};
-
-            #[derive(Debug, Deserialize, Serialize)]
-            pub struct CoverArtQueue {
-                pub id: uuid::Uuid,
-                pub song_queue_id: uuid::Uuid,
-            }
-
-            #[derive(Debug, Deserialize, Serialize)]
-            pub struct Response {
-                pub message: String,
-                pub data: Vec<CoverArtQueue>,
-            }
-        }
     }
 }
