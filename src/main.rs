@@ -24,7 +24,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     // TODO: Do something with the result later
                     match some_work(&app_base_url, &song_queue_id).await {
-                        Ok(_) => {}
+                        Ok((
+                            song,
+                            coverart,
+                            (song_queue_id, song_queue_path),
+                            (coverart_queue_id, coverart_queue_path),
+                        )) => {
+                            // TODO: Wipe data from song and coverart queues
+                            // TODO: Cleanup files in local filesystem
+                        }
                         Err(err) => {
                             eprintln!("Error: {err:?}");
                         }
@@ -69,7 +77,15 @@ async fn is_queue_empty(
 async fn some_work(
     app_base_url: &String,
     song_queue_id: &uuid::Uuid,
-) -> Result<(), std::io::Error> {
+) -> Result<
+    (
+        icarus_models::song::Song,
+        icarus_models::coverart::CoverArt,
+        (uuid::Uuid, String),
+        (uuid::Uuid, String),
+    ),
+    std::io::Error,
+> {
     match prep_song(app_base_url, song_queue_id).await {
         Ok((song_queue_path, coverart_queue_path, metadata, coverart_queue_id)) => {
             match apply_metadata(&song_queue_path, &coverart_queue_path, &metadata).await {
@@ -111,15 +127,22 @@ async fn some_work(
                                                 println!("Response: {resp:?}");
 
                                                 let song = &resp.data[0];
-                                                let url = format!("{app_base_url}/api/v2/coverart");
-                                                let payload = serde_json::json!({
-                                                    "song_id": &song.id,
-                                                    "coverart_queue_id": &coverart_queue_id,
-                                                });
-                                                println!("Payload: {payload:?}");
-                                                println!("Url: {url:?}");
-                                                // println!("Response json: {:?}", response.text().await);
-                                                Ok(())
+                                                match the_rest::create_coverart::create(app_base_url, &song.id, &coverart_queue_id).await {
+                                                    Ok(response) => match response.json::<the_rest::create_coverart::response::Response>().await {
+                                                        Ok(resp) => {
+                                                            println!("CoverArt sent and successfully parsed response");
+                                                            println!("json: {resp:?}");
+                                                            let coverart = &resp.data[0];
+                                                            Ok((song.clone(), coverart.clone(), (metadata.song_queue_id, song_queue_path), (coverart_queue_id, coverart_queue_path)))
+                                                        }
+                                                        Err(err) => {
+                                                            Err(std::io::Error::other(err.to_string()))
+                                                        }
+                                                    }
+                                                    Err(err) => {
+                                                        Err(std::io::Error::other(err.to_string()))
+                                                    }
+                                                }
                                             }
                                             Err(err) => Err(std::io::Error::other(err.to_string())),
                                         },

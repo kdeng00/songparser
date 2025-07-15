@@ -45,5 +45,36 @@ pub mod create_song {
 }
 
 // TODO: Create coverart
+pub mod create_coverart {
+
+    pub async fn create(
+        base_url: &String,
+        song_id: &uuid::Uuid,
+        coverart_queue_id: &uuid::Uuid,
+    ) -> Result<reqwest::Response, reqwest::Error> {
+        let client = reqwest::Client::builder().build()?;
+        let url = format!("{base_url}/api/v2/coverart");
+        let payload = get_payload(song_id, coverart_queue_id);
+        let request = client.post(url).json(&payload);
+
+        request.send().await
+    }
+
+    fn get_payload(song_id: &uuid::Uuid, coverart_queue_id: &uuid::Uuid) -> serde_json::Value {
+        serde_json::json!({
+            "song_id": &song_id,
+            "coverart_queue_id": &coverart_queue_id,
+        })
+    }
+
+    pub mod response {
+        #[derive(Debug, serde::Deserialize, serde::Serialize)]
+        pub struct Response {
+            pub message: String,
+            pub data: Vec<icarus_models::coverart::CoverArt>,
+        }
+    }
+}
+
 // TODO: Wipe data from queued song
 // TODO: Wipe data from queued coverart
