@@ -31,6 +31,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             (coverart_queue_id, coverart_queue_path),
                         )) => {
                             // TODO: Wipe data from song and coverart queues
+                            match wipe_data_from_queues(
+                                &app_base_url,
+                                &song_queue_id,
+                                &coverart_queue_id,
+                            )
+                            .await
+                            {
+                                Ok(_) => {}
+                                Err(err) => {
+                                    eprintln!("Error: {err:?}");
+                                }
+                            }
                             // TODO: Cleanup files in local filesystem
                         }
                         Err(err) => {
@@ -48,6 +60,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         println!("Sleeping");
         tokio::time::sleep(tokio::time::Duration::from_secs(SECONDS_TO_SLEEP)).await;
+    }
+}
+
+async fn wipe_data_from_queues(
+    app_base_url: &String,
+    song_queue_id: &uuid::Uuid,
+    coverart_queue_id: &uuid::Uuid,
+) -> Result<(), std::io::Error> {
+    match the_rest::wipe_data::song_queue::wipe_data(app_base_url, song_queue_id).await {
+        Ok(response) => match response
+            .json::<the_rest::wipe_data::song_queue::response::Response>()
+            .await
+        {
+            Ok(_resp) => {
+                println!("Wiped data from song queue");
+                Ok(())
+            }
+            Err(err) => Err(std::io::Error::other(err.to_string())),
+        },
+        Err(err) => Err(std::io::Error::other(err.to_string())),
     }
 }
 

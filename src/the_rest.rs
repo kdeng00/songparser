@@ -1,6 +1,5 @@
 // TODO: Refactor this file when this app is functional
 
-// TODO: Create song
 pub mod create_song {
     pub async fn create(
         base_url: &String,
@@ -44,7 +43,6 @@ pub mod create_song {
     }
 }
 
-// TODO: Create coverart
 pub mod create_coverart {
 
     pub async fn create(
@@ -76,5 +74,29 @@ pub mod create_coverart {
     }
 }
 
-// TODO: Wipe data from queued song
-// TODO: Wipe data from queued coverart
+pub mod wipe_data {
+    pub mod song_queue {
+        pub async fn wipe_data(
+            base_url: &String,
+            song_queue_id: &uuid::Uuid,
+        ) -> Result<reqwest::Response, reqwest::Error> {
+            let client = reqwest::Client::builder().build()?;
+            let url = format!("{base_url}/api/v2/song/queue/data/wipe");
+            let payload = serde_json::json!({
+                "song_queue_id": song_queue_id
+            });
+            let request = client.patch(url).json(&payload);
+
+            request.send().await
+        }
+
+        pub mod response {
+            #[derive(Debug, serde::Deserialize, serde::Serialize)]
+            pub struct Response {
+                pub message: String,
+                pub data: Vec<uuid::Uuid>,
+            }
+        }
+    }
+    // TODO: Wipe data from queued coverart
+}
