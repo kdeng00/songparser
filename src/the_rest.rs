@@ -123,3 +123,54 @@ pub mod wipe_data {
         }
     }
 }
+
+pub mod cleanup {
+    pub fn clean_song_queue(song_queue_path: &String) -> Result<(), std::io::Error> {
+        let file_path = std::path::Path::new(song_queue_path);
+        if file_path.exists() {
+            match std::fs::remove_file(file_path) {
+                Ok(_) => {
+                    if check_file_existence(song_queue_path) {
+                        Err(std::io::Error::other(String::from(
+                            "SongQueue file exists after a deletion",
+                        )))
+                    } else {
+                        Ok(())
+                    }
+                }
+                Err(err) => Err(std::io::Error::other(err.to_string())),
+            }
+        } else {
+            Err(std::io::Error::other(String::from(
+                "SongQueue file path does not exists",
+            )))
+        }
+    }
+
+    pub fn clean_coverart_queue(coverart_queue_path: &String) -> Result<(), std::io::Error> {
+        let coverart_file_path = std::path::Path::new(coverart_queue_path);
+        if coverart_file_path.exists() {
+            match std::fs::remove_file(coverart_file_path) {
+                Ok(_) => {
+                    if !check_file_existence(coverart_queue_path) {
+                        Ok(())
+                    } else {
+                        Err(std::io::Error::other(String::from(
+                            "CoverArt file stil exists",
+                        )))
+                    }
+                }
+                Err(err) => Err(std::io::Error::other(err.to_string())),
+            }
+        } else {
+            Err(std::io::Error::other(String::from(
+                "CoverArt file does not exists",
+            )))
+        }
+    }
+
+    fn check_file_existence(file_path: &String) -> bool {
+        let path = std::path::Path::new(file_path);
+        path.exists()
+    }
+}

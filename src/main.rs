@@ -40,7 +40,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .await
                             {
                                 Ok(_) => {
-                                    // TODO: Cleanup files in local filesystem
+                                    match cleanup(&song_queue_path, &coverart_queue_path).await {
+                                        Ok(_) => {
+                                            println!("Successful cleanup");
+                                        }
+                                        Err(err) => {
+                                            eprintln!("Error: {err:?}");
+                                        }
+                                    }
                                 }
                                 Err(err) => {
                                     eprintln!("Error: {err:?}");
@@ -97,6 +104,23 @@ async fn wipe_data_from_queues(
             Err(err) => Err(std::io::Error::other(err.to_string())),
         },
         Err(err) => Err(std::io::Error::other(err.to_string())),
+    }
+}
+
+async fn cleanup(
+    song_queue_path: &String,
+    coverart_queue_path: &String,
+) -> Result<(), std::io::Error> {
+    match the_rest::cleanup::clean_song_queue(song_queue_path) {
+        Ok(_) => {}
+        Err(err) => {
+            eprintln!("Error: Problem cleaning up SongQueue files {err:?}");
+        }
+    }
+
+    match the_rest::cleanup::clean_coverart_queue(coverart_queue_path) {
+        Ok(_) => Ok(()),
+        Err(err) => Err(err),
     }
 }
 
