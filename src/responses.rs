@@ -6,6 +6,7 @@ pub mod fetch_next_queue_item {
         pub id: uuid::Uuid,
         pub filename: String,
         pub status: String,
+        pub user_id: uuid::Uuid,
     }
 
     #[derive(Debug, Deserialize, Serialize)]

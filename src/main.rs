@@ -21,9 +21,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("Queue is not empty");
                     println!("SongQueueItem: {song_queue_item:?}");
                     let song_queue_id = song_queue_item.data[0].id;
+                    let user_id = song_queue_item.data[0].user_id;
 
                     // TODO: Do something with the result later
-                    match some_work(&app_base_url, &song_queue_id).await {
+                    match some_work(&app_base_url, &song_queue_id, &user_id).await {
                         Ok((
                             _song,
                             _coverart,
@@ -125,6 +126,7 @@ async fn is_queue_empty(
 async fn some_work(
     app_base_url: &String,
     song_queue_id: &uuid::Uuid,
+    user_id: &uuid::Uuid,
 ) -> Result<
     (
         icarus_models::song::Song,
@@ -153,16 +155,13 @@ async fn some_work(
                                 Ok(_inner_response) => {
                                     println!("Response: {_inner_response:?}");
 
-                                    // TODO: Do not hard code this. Check if one of the existing
-                                    // endpoints already have the user_id
-                                    let user_id = uuid::Uuid::new_v4();
                                     // TODO: Place this somewhere else
                                     let song_type = String::from("flac");
-                                    // Err(std::io::Error::other(err.to_string()))
+
                                     match the_rest::create_song::create(
                                         app_base_url,
                                         &metadata,
-                                        &user_id,
+                                        user_id,
                                         &song_type,
                                     )
                                     .await
