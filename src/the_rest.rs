@@ -98,7 +98,6 @@ pub mod wipe_data {
             }
         }
     }
-    // TODO: Wipe data from queued coverart
     pub mod coverart_queue {
         pub async fn wipe_data(
             base_url: &String,

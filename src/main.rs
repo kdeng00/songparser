@@ -31,7 +31,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             (song_queue_id, song_queue_path),
                             (coverart_queue_id, coverart_queue_path),
                         )) => {
-                            // TODO: Wipe data from song and coverart queues
                             match wipe_data_from_queues(
                                 &app_base_url,
                                 &song_queue_id,
