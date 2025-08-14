@@ -2,7 +2,7 @@
 
 pub mod create_song {
     pub async fn create(
-        base_url: &String,
+        app: &crate::config::App,
         metadata_queue: &crate::api::get_metadata_queue::response::Metadata,
         user_id: &uuid::Uuid,
         song_type: &String,
@@ -28,9 +28,10 @@ pub mod create_song {
 
         let client = reqwest::Client::builder().build()?;
 
-        let url = format!("{base_url}/api/v2/song");
+        let url = format!("{}/api/v2/song", app.uri);
+        let (key, header) = crate::api::auth_header(app).await;
 
-        let request = client.post(url).json(&payload);
+        let request = client.post(url).json(&payload).header(key, header);
         request.send().await
     }
 
@@ -46,14 +47,15 @@ pub mod create_song {
 pub mod create_coverart {
 
     pub async fn create(
-        base_url: &String,
+        app: &crate::config::App,
         song_id: &uuid::Uuid,
         coverart_queue_id: &uuid::Uuid,
     ) -> Result<reqwest::Response, reqwest::Error> {
         let client = reqwest::Client::builder().build()?;
-        let url = format!("{base_url}/api/v2/coverart");
+        let url = format!("{}/api/v2/coverart", app.uri);
         let payload = get_payload(song_id, coverart_queue_id);
-        let request = client.post(url).json(&payload);
+        let (key, header) = crate::api::auth_header(app).await;
+        let request = client.post(url).json(&payload).header(key, header);
 
         request.send().await
     }
@@ -77,15 +79,16 @@ pub mod create_coverart {
 pub mod wipe_data {
     pub mod song_queue {
         pub async fn wipe_data(
-            base_url: &String,
+            app: &crate::config::App,
             song_queue_id: &uuid::Uuid,
         ) -> Result<reqwest::Response, reqwest::Error> {
             let client = reqwest::Client::builder().build()?;
-            let url = format!("{base_url}/api/v2/song/queue/data/wipe");
+            let url = format!("{}/api/v2/song/queue/data/wipe", app.uri);
             let payload = serde_json::json!({
                 "song_queue_id": song_queue_id
             });
-            let request = client.patch(url).json(&payload);
+            let (key, header) = crate::api::auth_header(app).await;
+            let request = client.patch(url).json(&payload).header(key, header);
 
             request.send().await
         }
@@ -100,15 +103,16 @@ pub mod wipe_data {
     }
     pub mod coverart_queue {
         pub async fn wipe_data(
-            base_url: &String,
+            app: &crate::config::App,
             coverart_queue_id: &uuid::Uuid,
         ) -> Result<reqwest::Response, reqwest::Error> {
             let client = reqwest::Client::builder().build()?;
-            let url = format!("{base_url}/api/v2/coverart/queue/data/wipe");
+            let url = format!("{}/api/v2/coverart/queue/data/wipe", app.uri);
             let payload = serde_json::json!({
                 "coverart_queue_id": coverart_queue_id
             });
-            let request = client.patch(url).json(&payload);
+            let (key, header) = crate::api::auth_header(app).await;
+            let request = client.patch(url).json(&payload).header(key, header);
 
             request.send().await
         }

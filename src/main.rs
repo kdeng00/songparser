@@ -1,4 +1,5 @@
 pub mod api;
+pub mod config;
 pub mod responses;
 pub mod the_rest;
 pub mod update_queued_song;
@@ -10,33 +11,61 @@ pub const SECONDS_TO_SLEEP: u64 = 5;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let app_base_url = icarus_envy::environment::get_icarus_base_api_url().await;
+    let mut app = config::App {
+        uri: icarus_envy::environment::get_icarus_base_api_url().await,
+        auth_uri: icarus_envy::environment::get_icarus_auth_base_api_url().await,
+        ..Default::default()
+    };
+    match auth::get_token(&app).await {
+        Ok(login_result) => {
+            app.token = login_result;
+        }
+        Err(err) => {
+            eprintln!("Error: {err:?}");
+            std::process::exit(-1);
+        }
+    };
 
     loop {
-        println!("Base URL: {app_base_url}");
+        println!("Base URL: {:?}", app.uri);
+        println!("Auth URL: {:?}", app.auth_uri);
+        println!("Token: {:?}", app.token);
 
-        match is_queue_empty(&app_base_url).await {
+        if auth::did_token_expire(&app.token).await {
+            println!("Token expired");
+            app.token = match auth::get_refresh_token(&app).await {
+                Ok(login_result) => login_result,
+                Err(err) => {
+                    eprintln!("Error: {err:?}");
+                    continue;
+                }
+            };
+
+            println!("Token refreshed");
+            println!("Refreshed token: {:?}", app.token);
+        } else {
+            println!("Token did not expire");
+        }
+
+        match is_queue_empty(&app).await {
             Ok((empty, song_queue_item)) => {
                 if !empty {
                     println!("Queue is not empty");
                     println!("SongQueueItem: {song_queue_item:?}");
+
                     let song_queue_id = song_queue_item.data[0].id;
                     let user_id = song_queue_item.data[0].user_id;
 
                     // TODO: Do something with the result later
-                    match some_work(&app_base_url, &song_queue_id, &user_id).await {
+                    match some_work(&app, &song_queue_id, &user_id).await {
                         Ok((
                             _song,
                             _coverart,
                             (song_queue_id, song_queue_path),
                             (coverart_queue_id, coverart_queue_path),
                         )) => {
-                            match wipe_data_from_queues(
-                                &app_base_url,
-                                &song_queue_id,
-                                &coverart_queue_id,
-                            )
-                            .await
+                            match wipe_data_from_queues(&app, &song_queue_id, &coverart_queue_id)
+                                .await
                             {
                                 Ok(_) => {
                                     match cleanup(&song_queue_path, &coverart_queue_path).await {
@@ -71,35 +100,100 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
+mod auth {
+    pub async fn get_token(
+        app: &crate::config::App,
+    ) -> Result<icarus_models::login_result::LoginResult, std::io::Error> {
+        let client = reqwest::Client::new();
+        let endpoint = String::from("api/v2/service/login");
+        let api_url = format!("{}/{endpoint}", app.auth_uri);
+
+        let payload = serde_json::json!({
+            "passphrase": icarus_envy::environment::get_service_passphrase().await,
+        });
+
+        match client.post(api_url).json(&payload).send().await {
+            Ok(response) => match response
+                .json::<crate::api::service_token::response::Response>()
+                .await
+            {
+                Ok(resp) => {
+                    if resp.data.is_empty() {
+                        Err(std::io::Error::other(String::from("No token returned")))
+                    } else {
+                        Ok(resp.data[0].clone())
+                    }
+                }
+                Err(err) => Err(std::io::Error::other(err.to_string())),
+            },
+            Err(err) => Err(std::io::Error::other(err.to_string())),
+        }
+    }
+
+    // TODO: Might want to put the functionality within icarus_models at some point
+    pub async fn did_token_expire(login_result: &icarus_models::login_result::LoginResult) -> bool {
+        let current_time = time::OffsetDateTime::now_utc();
+        let expire_time =
+            time::OffsetDateTime::from_unix_timestamp(login_result.expiration).unwrap();
+        current_time > expire_time
+    }
+
+    pub async fn get_refresh_token(
+        app: &crate::config::App,
+    ) -> Result<icarus_models::login_result::LoginResult, std::io::Error> {
+        let client = reqwest::Client::new();
+        let endpoint = String::from("api/v2/token/refresh");
+        let api_url = format!("{}/{endpoint}", app.auth_uri);
+
+        let payload = serde_json::json!({
+            "access_token": app.token.token
+        });
+
+        match client.post(api_url).json(&payload).send().await {
+            Ok(response) => match response
+                .json::<crate::api::refresh_token::response::Response>()
+                .await
+            {
+                Ok(resp) => {
+                    if resp.data.is_empty() {
+                        Err(std::io::Error::other(String::from("No token returned")))
+                    } else {
+                        Ok(resp.data[0].clone())
+                    }
+                }
+                Err(err) => Err(std::io::Error::other(err.to_string())),
+            },
+            Err(err) => Err(std::io::Error::other(err.to_string())),
+        }
+    }
+}
+
 async fn wipe_data_from_queues(
-    app_base_url: &String,
+    app: &config::App,
     song_queue_id: &uuid::Uuid,
     coverart_queue_id: &uuid::Uuid,
 ) -> Result<(), std::io::Error> {
-    match the_rest::wipe_data::song_queue::wipe_data(app_base_url, song_queue_id).await {
+    match the_rest::wipe_data::song_queue::wipe_data(app, song_queue_id).await {
         Ok(response) => match response
             .json::<the_rest::wipe_data::song_queue::response::Response>()
             .await
         {
-            Ok(_resp) => match the_rest::wipe_data::coverart_queue::wipe_data(
-                app_base_url,
-                coverart_queue_id,
-            )
-            .await
-            {
-                Ok(inner_response) => match inner_response
-                    .json::<the_rest::wipe_data::coverart_queue::response::Response>()
-                    .await
-                {
-                    Ok(_inner_resp) => {
-                        println!("Wiped data from CoverArt queue");
-                        println!("Resp: {_inner_resp:?}");
-                        Ok(())
-                    }
+            Ok(_resp) => {
+                match the_rest::wipe_data::coverart_queue::wipe_data(app, coverart_queue_id).await {
+                    Ok(inner_response) => match inner_response
+                        .json::<the_rest::wipe_data::coverart_queue::response::Response>()
+                        .await
+                    {
+                        Ok(_inner_resp) => {
+                            println!("Wiped data from CoverArt queue");
+                            println!("Resp: {_inner_resp:?}");
+                            Ok(())
+                        }
+                        Err(err) => Err(std::io::Error::other(err.to_string())),
+                    },
                     Err(err) => Err(std::io::Error::other(err.to_string())),
-                },
-                Err(err) => Err(std::io::Error::other(err.to_string())),
-            },
+                }
+            }
             Err(err) => Err(std::io::Error::other(err.to_string())),
         },
         Err(err) => Err(std::io::Error::other(err.to_string())),
@@ -124,9 +218,9 @@ async fn cleanup(
 }
 
 async fn is_queue_empty(
-    api_url: &String,
+    app: &config::App,
 ) -> Result<(bool, responses::fetch_next_queue_item::SongQueueItem), reqwest::Error> {
-    match api::fetch_next_queue_item(api_url).await {
+    match api::fetch_next_queue_item(app).await {
         Ok(response) => {
             match response
                 .json::<responses::fetch_next_queue_item::SongQueueItem>()
@@ -147,7 +241,7 @@ async fn is_queue_empty(
 }
 
 async fn some_work(
-    app_base_url: &String,
+    app: &crate::config::App,
     song_queue_id: &uuid::Uuid,
     user_id: &uuid::Uuid,
 ) -> Result<
@@ -159,12 +253,12 @@ async fn some_work(
     ),
     std::io::Error,
 > {
-    match prep_song(app_base_url, song_queue_id).await {
+    match prep_song(app, song_queue_id).await {
         Ok((song_queue_path, coverart_queue_path, metadata, coverart_queue_id)) => {
             match apply_metadata(&song_queue_path, &coverart_queue_path, &metadata).await {
                 Ok(_applied) => {
                     match update_queued_song::update_queued_song(
-                        app_base_url,
+                        app,
                         &song_queue_path,
                         song_queue_id,
                     )
@@ -182,10 +276,7 @@ async fn some_work(
                                     let song_type = String::from("flac");
 
                                     match the_rest::create_song::create(
-                                        app_base_url,
-                                        &metadata,
-                                        user_id,
-                                        &song_type,
+                                        app, &metadata, user_id, &song_type,
                                     )
                                     .await
                                     {
@@ -197,7 +288,7 @@ async fn some_work(
                                                 println!("Response: {resp:?}");
 
                                                 let song = &resp.data[0];
-                                                match the_rest::create_coverart::create(app_base_url, &song.id, &coverart_queue_id).await {
+                                                match the_rest::create_coverart::create(app, &song.id, &coverart_queue_id).await {
                                                     Ok(response) => match response.json::<the_rest::create_coverart::response::Response>().await {
                                                         Ok(resp) => {
                                                             println!("CoverArt sent and successfully parsed response");
@@ -233,7 +324,7 @@ async fn some_work(
 }
 
 async fn prep_song(
-    api_url: &String,
+    app: &crate::config::App,
     song_queue_id: &uuid::Uuid,
 ) -> Result<
     (
@@ -244,7 +335,7 @@ async fn prep_song(
     ),
     reqwest::Error,
 > {
-    match api::fetch_song_queue_data::get_data(api_url, song_queue_id).await {
+    match api::fetch_song_queue_data::get_data(app, song_queue_id).await {
         Ok(response) => {
             // Process data here...
             match api::parsing::parse_response_into_bytes(response).await {
@@ -254,7 +345,7 @@ async fn prep_song(
 
                     println!("Saved at: {song_queue_path:?}");
 
-                    match api::get_metadata_queue::get(api_url, song_queue_id).await {
+                    match api::get_metadata_queue::get(app, song_queue_id).await {
                         Ok(response) => {
                             match response
                                 .json::<api::get_metadata_queue::response::Response>()
@@ -269,15 +360,14 @@ async fn prep_song(
                                     println!("Created at: {created_at:?}");
 
                                     println!("Getting coverart queue");
-                                    match api::get_coverart_queue::get(api_url, song_queue_id).await
-                                    {
+                                    match api::get_coverart_queue::get(app, song_queue_id).await {
                                         Ok(response) => {
                                             match response.json::<api::get_coverart_queue::response::Response>().await {
                                                 Ok(response) => {
                                                     let coverart_queue_id = &response.data[0].id;
                                                     println!("Coverart queue Id: {coverart_queue_id:?}");
 
-                                                    match api::get_coverart_queue::get_data(api_url, coverart_queue_id).await {
+                                                    match api::get_coverart_queue::get_data(app, coverart_queue_id).await {
                                                         Ok(response) => match api::parsing::parse_response_into_bytes(response).await {
                                                             Ok(coverart_queue_bytes) => {
                                                                 let (directory, filename) = generate_coverart_queue_dir_and_filename().await;

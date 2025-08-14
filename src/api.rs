@@ -1,8 +1,20 @@
-pub async fn fetch_next_queue_item(base_url: &String) -> Result<reqwest::Response, reqwest::Error> {
+pub async fn fetch_next_queue_item(
+    app: &crate::config::App,
+) -> Result<reqwest::Response, reqwest::Error> {
     let client = reqwest::Client::new();
     let fetch_endpoint = String::from("api/v2/song/queue/next");
-    let api_url = format!("{base_url}/{fetch_endpoint}");
-    client.get(api_url).send().await
+    let api_url = format!("{}/{fetch_endpoint}", app.uri);
+    let (key, header) = auth_header(app).await;
+
+    client.get(api_url).header(key, header).send().await
+}
+
+pub async fn auth_header(
+    app: &crate::config::App,
+) -> (reqwest::header::HeaderName, reqwest::header::HeaderValue) {
+    let bearer = format!("Bearer {}", app.token.token);
+    let header_value = reqwest::header::HeaderValue::from_str(&bearer).unwrap();
+    (reqwest::header::AUTHORIZATION, header_value)
 }
 
 pub mod parsing {
@@ -27,27 +39,30 @@ pub mod parsing {
 
 pub mod fetch_song_queue_data {
     pub async fn get_data(
-        base_url: &String,
+        app: &crate::config::App,
         id: &uuid::Uuid,
     ) -> Result<reqwest::Response, reqwest::Error> {
         let client = reqwest::Client::new();
         let endpoint = String::from("api/v2/song/queue");
-        let api_url = format!("{base_url}/{endpoint}/{id}");
-        client.get(api_url).send().await
+        let api_url = format!("{}/{endpoint}/{id}", app.uri);
+        let (key, header) = super::auth_header(app).await;
+        client.get(api_url).header(key, header).send().await
     }
 }
 
 pub mod get_metadata_queue {
     pub async fn get(
-        base_url: &String,
+        app: &crate::config::App,
         song_queue_id: &uuid::Uuid,
     ) -> Result<reqwest::Response, reqwest::Error> {
         let client = reqwest::Client::new();
         let endpoint = String::from("api/v2/song/metadata/queue");
-        let api_url = format!("{base_url}/{endpoint}");
+        let api_url = format!("{}/{endpoint}", app.uri);
+        let (key, header) = super::auth_header(app).await;
         client
             .get(api_url)
             .query(&[("song_queue_id", song_queue_id)])
+            .header(key, header)
             .send()
             .await
     }
@@ -90,27 +105,30 @@ pub mod get_metadata_queue {
 
 pub mod get_coverart_queue {
     pub async fn get(
-        base_url: &String,
+        app: &crate::config::App,
         song_queue_id: &uuid::Uuid,
     ) -> Result<reqwest::Response, reqwest::Error> {
         let client = reqwest::Client::new();
         let endpoint = String::from("api/v2/coverart/queue");
-        let api_url = format!("{base_url}/{endpoint}");
+        let api_url = format!("{}/{endpoint}", app.uri);
+        let (key, header) = super::auth_header(app).await;
         client
             .get(api_url)
             .query(&[("song_queue_id", song_queue_id)])
+            .header(key, header)
             .send()
             .await
     }
 
     pub async fn get_data(
-        base_url: &String,
+        app: &crate::config::App,
         coverart_queue_id: &uuid::Uuid,
     ) -> Result<reqwest::Response, reqwest::Error> {
         let client = reqwest::Client::new();
         let endpoint = String::from("api/v2/coverart/queue/data");
-        let api_url = format!("{base_url}/{endpoint}/{coverart_queue_id}");
-        client.get(api_url).send().await
+        let api_url = format!("{}/{endpoint}/{coverart_queue_id}", app.uri);
+        let (key, header) = super::auth_header(app).await;
+        client.get(api_url).header(key, header).send().await
     }
 
     pub mod response {
@@ -126,6 +144,26 @@ pub mod get_coverart_queue {
         pub struct Response {
             pub message: String,
             pub data: Vec<CoverArtQueue>,
+        }
+    }
+}
+
+pub mod service_token {
+    pub mod response {
+        #[derive(Debug, serde::Deserialize, serde::Serialize)]
+        pub struct Response {
+            pub message: String,
+            pub data: Vec<icarus_models::login_result::LoginResult>,
+        }
+    }
+}
+
+pub mod refresh_token {
+    pub mod response {
+        #[derive(Debug, serde::Deserialize, serde::Serialize)]
+        pub struct Response {
+            pub message: String,
+            pub data: Vec<icarus_models::login_result::LoginResult>,
         }
     }
 }

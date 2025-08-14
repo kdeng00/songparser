@@ -1,5 +1,5 @@
 pub async fn update_queued_song(
-    base_url: &String,
+    app: &crate::config::App,
     song_path: &String,
     song_queue_id: &uuid::Uuid,
 ) -> Result<reqwest::Response, reqwest::Error> {
@@ -14,10 +14,11 @@ pub async fn update_queued_song(
             .file_name("track01.flac"),
     );
 
-    let url = format!("{base_url}/api/v2/song/queue/{song_queue_id}");
+    let url = format!("{}/api/v2/song/queue/{song_queue_id}", app.uri);
     println!("Url: {url:?}");
 
-    let request = client.patch(url).multipart(form);
+    let (key, header) = crate::api::auth_header(app).await;
+    let request = client.patch(url).multipart(form).header(key, header);
 
     let response = request.send().await?;
 
