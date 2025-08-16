@@ -16,6 +16,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         auth_uri: icarus_envy::environment::get_icarus_auth_base_api_url().await,
         ..Default::default()
     };
+    println!("Base URL: {:?}", app.uri);
+    println!("Auth URL: {:?}", app.auth_uri);
+
     match auth::get_token(&app).await {
         Ok(login_result) => {
             app.token = login_result;
@@ -27,8 +30,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     loop {
-        println!("Base URL: {:?}", app.uri);
-        println!("Auth URL: {:?}", app.auth_uri);
         println!("Token: {:?}", app.token);
 
         if auth::did_token_expire(&app.token).await {
