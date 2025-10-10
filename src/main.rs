@@ -12,8 +12,12 @@ pub const SECONDS_TO_SLEEP: u64 = 5;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut app = config::App {
-        uri: icarus_envy::environment::get_icarus_base_api_url().await,
-        auth_uri: icarus_envy::environment::get_icarus_auth_base_api_url().await,
+        uri: icarus_envy::environment::get_icarus_base_api_url()
+            .await
+            .value,
+        auth_uri: icarus_envy::environment::get_icarus_auth_base_api_url()
+            .await
+            .value,
         ..Default::default()
     };
     println!("Base URL: {:?}", app.uri);
@@ -110,7 +114,7 @@ mod auth {
         let api_url = format!("{}/{endpoint}", app.auth_uri);
 
         let payload = serde_json::json!({
-            "passphrase": icarus_envy::environment::get_service_passphrase().await,
+            "passphrase": icarus_envy::environment::get_service_passphrase().await.value,
         });
 
         match client.post(api_url).json(&payload).send().await {
@@ -415,7 +419,7 @@ pub async fn generate_song_queue_dir_and_filename() -> (String, String) {
     let mut song = icarus_models::song::Song::default();
     song.filename = song.generate_filename(icarus_models::types::MusicTypes::FlacExtension, true);
 
-    song.directory = icarus_envy::environment::get_root_directory().await;
+    song.directory = icarus_envy::environment::get_root_directory().await.value;
 
     (song.directory, song.filename)
 }
@@ -444,7 +448,7 @@ pub async fn generate_coverart_queue_dir_and_filename() -> (String, String) {
     filename += ".jpeg";
 
     // TODO: Consider separating song and coverart when saving to the filesystem
-    let directory = icarus_envy::environment::get_root_directory().await;
+    let directory = icarus_envy::environment::get_root_directory().await.value;
 
     (directory, filename)
 }
