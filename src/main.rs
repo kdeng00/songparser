@@ -5,8 +5,6 @@ pub mod the_rest;
 pub mod update_queued_song;
 pub mod util;
 
-use std::io::Write;
-
 pub const SECONDS_TO_SLEEP: u64 = 5;
 
 #[tokio::main]
@@ -64,24 +62,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     // TODO: Do something with the result later
                     match some_work(&app, &song_queue_id, &user_id).await {
                         Ok((
-                            _song,
-                            _coverart,
-                            (song_queue_id, song_queue_path),
-                            (coverart_queue_id, coverart_queue_path),
+                            song,
+                            coverart,
+                            (song_queue_id, _song_queue_path),
+                            (coverart_queue_id, _coverart_queue_path),
                         )) => {
                             match wipe_data_from_queues(&app, &song_queue_id, &coverart_queue_id)
                                 .await
                             {
-                                Ok(_) => {
-                                    match cleanup(&song_queue_path, &coverart_queue_path).await {
-                                        Ok(_) => {
-                                            println!("Successful cleanup");
-                                        }
-                                        Err(err) => {
-                                            eprintln!("Error: {err:?}");
-                                        }
+                                Ok(_) => match cleanup(&song, &coverart).await {
+                                    Ok(_) => {
+                                        println!("Successful cleanup");
                                     }
-                                }
+                                    Err(err) => {
+                                        eprintln!("Error: {err:?}");
+                                    }
+                                },
                                 Err(err) => {
                                     eprintln!("Error: {err:?}");
                                 }
@@ -206,17 +202,17 @@ async fn wipe_data_from_queues(
 }
 
 async fn cleanup(
-    song_queue_path: &String,
-    coverart_queue_path: &String,
+    song: &icarus_models::song::Song,
+    coverart: &icarus_models::coverart::CoverArt,
 ) -> Result<(), std::io::Error> {
-    match the_rest::cleanup::clean_song_queue(song_queue_path) {
+    match song.remove_from_filesystem() {
         Ok(_) => {}
         Err(err) => {
             eprintln!("Error: Problem cleaning up SongQueue files {err:?}");
         }
     }
 
-    match the_rest::cleanup::clean_coverart_queue(coverart_queue_path) {
+    match coverart.remove_from_filesystem() {
         Ok(_) => Ok(()),
         Err(err) => Err(err),
     }
@@ -346,7 +342,17 @@ async fn prep_song(
             match api::parsing::parse_response_into_bytes(response).await {
                 Ok(song_bytes) => {
                     let (directory, filename) = generate_song_queue_dir_and_filename().await;
-                    let song_queue_path = save_file_to_fs(&directory, &filename, &song_bytes).await;
+                    let song = icarus_models::song::Song {
+                        directory,
+                        filename,
+                        data: song_bytes,
+                        ..Default::default()
+                    };
+                    let songpath = song.song_path().unwrap_or_default();
+                    let song_queue_path = match song.save_to_filesystem() {
+                        Ok(_) => std::path::Path::new(&songpath),
+                        Err(_err) => std::path::Path::new(""),
+                    };
 
                     println!("Saved at: {song_queue_path:?}");
 
@@ -376,12 +382,17 @@ async fn prep_song(
                                                         Ok(response) => match api::parsing::parse_response_into_bytes(response).await {
                                                             Ok(coverart_queue_bytes) => {
                                                                 let (directory, filename) = generate_coverart_queue_dir_and_filename().await;
-                                                                let coverart_queue_path = save_file_to_fs(&directory, &filename, &coverart_queue_bytes).await;
-
+                                                                let coverart = icarus_models::coverart::CoverArt {
+                                                                    path: directory + "/" + &filename,
+                                                                    data: coverart_queue_bytes,
+                                                                    ..Default::default()
+                                                                };
+                                                                coverart.save_to_filesystem().unwrap();
+                                                                let coverart_queue_path = std::path::Path::new(&coverart.path);
                                                                 println!("Saved coverart queue file at: {coverart_queue_path:?}");
 
-                                                                let c_path = util::path_buf_to_string(&coverart_queue_path);
-                                                                let s_path = util::path_buf_to_string(&song_queue_path);
+                                                                let c_path = util::path_buf_to_string(coverart_queue_path);
+                                                                let s_path = util::path_buf_to_string(song_queue_path);
                                                                 Ok((s_path, c_path, metadata.clone(), *coverart_queue_id))
                                                             }
                                                             Err(err) => {
@@ -417,7 +428,10 @@ async fn prep_song(
 // TODO: Consider having something like this in icarus_models
 pub async fn generate_song_queue_dir_and_filename() -> (String, String) {
     let mut song = icarus_models::song::Song::default();
-    song.filename = song.generate_filename(icarus_models::types::MusicTypes::FlacExtension, true);
+    song.filename = icarus_models::song::generate_filename(
+        icarus_models::types::MusicTypes::FlacExtension,
+        true,
+    );
 
     song.directory = icarus_envy::environment::get_root_directory().await.value;
 
@@ -451,23 +465,6 @@ pub async fn generate_coverart_queue_dir_and_filename() -> (String, String) {
     let directory = icarus_envy::environment::get_root_directory().await.value;
 
     (directory, filename)
-}
-
-// TODO: Check to see if this is available in icarus_models
-pub async fn save_file_to_fs(
-    directory: &String,
-    filename: &String,
-    data: &[u8],
-) -> std::path::PathBuf {
-    // TODO: Add function to save bytes to a file in icarus_models
-    // repo
-    let dir = std::path::Path::new(directory);
-    let save_path = dir.join(filename);
-
-    let mut file = std::fs::File::create(&save_path).unwrap();
-    file.write_all(data).unwrap();
-
-    save_path
 }
 
 pub async fn apply_metadata(
