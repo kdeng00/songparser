@@ -1,12 +1,33 @@
-pub async fn fetch_next_queue_item(
-    app: &crate::config::App,
-) -> Result<reqwest::Response, reqwest::Error> {
-    let client = reqwest::Client::new();
-    let fetch_endpoint = String::from("api/v2/song/queue/next");
-    let api_url = format!("{}/{fetch_endpoint}", app.uri);
-    let (key, header) = auth_header(app).await;
+pub mod fetch_next_queue_item {
 
-    client.get(api_url).header(key, header).send().await
+    pub async fn fetch_next_queue_item(
+        app: &crate::config::App,
+    ) -> Result<reqwest::Response, reqwest::Error> {
+        let client = reqwest::Client::new();
+        let fetch_endpoint = String::from("api/v2/song/queue/next");
+        let api_url = format!("{}/{fetch_endpoint}", app.uri);
+        let (key, header) = super::auth_header(app).await;
+
+        client.get(api_url).header(key, header).send().await
+    }
+
+    pub mod response {
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Deserialize, Serialize)]
+        pub struct QueueItem {
+            pub id: uuid::Uuid,
+            pub filename: String,
+            pub status: String,
+            pub user_id: uuid::Uuid,
+        }
+
+        #[derive(Debug, Deserialize, Serialize)]
+        pub struct SongQueueItem {
+            pub message: String,
+            pub data: Vec<QueueItem>,
+        }
+    }
 }
 
 pub async fn auth_header(
@@ -164,6 +185,172 @@ pub mod refresh_token {
         pub struct Response {
             pub message: String,
             pub data: Vec<icarus_models::login_result::LoginResult>,
+        }
+    }
+}
+
+pub mod update_queued_song {
+    pub async fn update_queued_song(
+        app: &crate::config::App,
+        song_path: &String,
+        song_queue_id: &uuid::Uuid,
+    ) -> Result<reqwest::Response, reqwest::Error> {
+        let client = reqwest::Client::builder().build()?;
+
+        println!("Song path: {song_path:?}");
+
+        // TODO: Make the filename random
+        let form = reqwest::multipart::Form::new().part(
+            "file",
+            reqwest::multipart::Part::bytes(std::fs::read(song_path).unwrap())
+                .file_name("track01.flac"),
+        );
+
+        let url = format!("{}/api/v2/song/queue/{song_queue_id}", app.uri);
+        println!("Url: {url:?}");
+
+        let (key, header) = crate::api::auth_header(app).await;
+        let request = client.patch(url).multipart(form).header(key, header);
+
+        let response = request.send().await?;
+
+        Ok(response)
+    }
+
+    pub mod response {
+        use serde::{Deserialize, Serialize};
+
+        #[derive(Debug, Deserialize, Serialize)]
+        pub struct Response {
+            pub message: String,
+            pub data: Vec<uuid::Uuid>,
+        }
+    }
+}
+
+pub mod create_song {
+    pub async fn create(
+        app: &crate::config::App,
+        metadata_queue: &crate::api::get_metadata_queue::response::Metadata,
+        user_id: &uuid::Uuid,
+        song_type: &String,
+    ) -> Result<reqwest::Response, reqwest::Error> {
+        let payload = serde_json::json!(
+        {
+            "album": &metadata_queue.album,
+            "album_artist": &metadata_queue.album_artist,
+            "artist": &metadata_queue.artist,
+            "disc": metadata_queue.disc,
+            "disc_count": metadata_queue.disc_count,
+            "duration": metadata_queue.duration,
+            "genre": &metadata_queue.genre,
+            "title": &metadata_queue.title,
+            "track": metadata_queue.track,
+            "track_count": metadata_queue.track_count,
+            "date": metadata_queue.year.to_string(),
+            "audio_type": &song_type,
+            "user_id": &user_id,
+            "song_queue_id": &metadata_queue.song_queue_id,
+        }
+        );
+
+        let client = reqwest::Client::builder().build()?;
+
+        let url = format!("{}/api/v2/song", app.uri);
+        let (key, header) = crate::api::auth_header(app).await;
+
+        let request = client.post(url).json(&payload).header(key, header);
+        request.send().await
+    }
+
+    pub mod response {
+        #[derive(Debug, serde::Deserialize, serde::Serialize)]
+        pub struct Response {
+            pub message: String,
+            pub data: Vec<icarus_models::song::Song>,
+        }
+    }
+}
+
+pub mod create_coverart {
+
+    pub async fn create(
+        app: &crate::config::App,
+        song_id: &uuid::Uuid,
+        coverart_queue_id: &uuid::Uuid,
+    ) -> Result<reqwest::Response, reqwest::Error> {
+        let client = reqwest::Client::builder().build()?;
+        let url = format!("{}/api/v2/coverart", app.uri);
+        let payload = get_payload(song_id, coverart_queue_id);
+        let (key, header) = crate::api::auth_header(app).await;
+        let request = client.post(url).json(&payload).header(key, header);
+
+        request.send().await
+    }
+
+    fn get_payload(song_id: &uuid::Uuid, coverart_queue_id: &uuid::Uuid) -> serde_json::Value {
+        serde_json::json!({
+            "song_id": &song_id,
+            "coverart_queue_id": &coverart_queue_id,
+        })
+    }
+
+    pub mod response {
+        #[derive(Debug, serde::Deserialize, serde::Serialize)]
+        pub struct Response {
+            pub message: String,
+            pub data: Vec<icarus_models::coverart::CoverArt>,
+        }
+    }
+}
+
+pub mod wipe_data {
+    pub mod song_queue {
+        pub async fn wipe_data(
+            app: &crate::config::App,
+            song_queue_id: &uuid::Uuid,
+        ) -> Result<reqwest::Response, reqwest::Error> {
+            let client = reqwest::Client::builder().build()?;
+            let url = format!("{}/api/v2/song/queue/data/wipe", app.uri);
+            let payload = serde_json::json!({
+                "song_queue_id": song_queue_id
+            });
+            let (key, header) = crate::api::auth_header(app).await;
+            let request = client.patch(url).json(&payload).header(key, header);
+
+            request.send().await
+        }
+
+        pub mod response {
+            #[derive(Debug, serde::Deserialize, serde::Serialize)]
+            pub struct Response {
+                pub message: String,
+                pub data: Vec<uuid::Uuid>,
+            }
+        }
+    }
+    pub mod coverart_queue {
+        pub async fn wipe_data(
+            app: &crate::config::App,
+            coverart_queue_id: &uuid::Uuid,
+        ) -> Result<reqwest::Response, reqwest::Error> {
+            let client = reqwest::Client::builder().build()?;
+            let url = format!("{}/api/v2/coverart/queue/data/wipe", app.uri);
+            let payload = serde_json::json!({
+                "coverart_queue_id": coverart_queue_id
+            });
+            let (key, header) = crate::api::auth_header(app).await;
+            let request = client.patch(url).json(&payload).header(key, header);
+
+            request.send().await
+        }
+
+        pub mod response {
+            #[derive(Debug, serde::Deserialize, serde::Serialize)]
+            pub struct Response {
+                pub message: String,
+                pub data: Vec<uuid::Uuid>,
+            }
         }
     }
 }
