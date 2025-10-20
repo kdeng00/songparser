@@ -1,5 +1,7 @@
 pub mod api;
+pub mod auth;
 pub mod config;
+pub mod metadata;
 pub mod util;
 
 pub const SECONDS_TO_SLEEP: u64 = 5;
@@ -31,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     loop {
         println!("Token: {:?}", app.token);
 
-        if auth::did_token_expire(&app.token).await {
+        if app.token.token_expired() {
             println!("Token expired");
             app.token = match auth::get_refresh_token(&app).await {
                 Ok(login_result) => login_result,
@@ -94,74 +96,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         println!("Sleeping");
         tokio::time::sleep(tokio::time::Duration::from_secs(SECONDS_TO_SLEEP)).await;
-    }
-}
-
-mod auth {
-    pub async fn get_token(
-        app: &crate::config::App,
-    ) -> Result<icarus_models::login_result::LoginResult, std::io::Error> {
-        let client = reqwest::Client::new();
-        let endpoint = String::from("api/v2/service/login");
-        let api_url = format!("{}/{endpoint}", app.auth_uri);
-
-        let payload = serde_json::json!({
-            "passphrase": icarus_envy::environment::get_service_passphrase().await.value,
-        });
-
-        match client.post(api_url).json(&payload).send().await {
-            Ok(response) => match response
-                .json::<crate::api::service_token::response::Response>()
-                .await
-            {
-                Ok(resp) => {
-                    if resp.data.is_empty() {
-                        Err(std::io::Error::other(String::from("No token returned")))
-                    } else {
-                        Ok(resp.data[0].clone())
-                    }
-                }
-                Err(err) => Err(std::io::Error::other(err.to_string())),
-            },
-            Err(err) => Err(std::io::Error::other(err.to_string())),
-        }
-    }
-
-    // TODO: Might want to put the functionality within icarus_models at some point
-    pub async fn did_token_expire(login_result: &icarus_models::login_result::LoginResult) -> bool {
-        let current_time = time::OffsetDateTime::now_utc();
-        let expire_time =
-            time::OffsetDateTime::from_unix_timestamp(login_result.expiration).unwrap();
-        current_time > expire_time
-    }
-
-    pub async fn get_refresh_token(
-        app: &crate::config::App,
-    ) -> Result<icarus_models::login_result::LoginResult, std::io::Error> {
-        let client = reqwest::Client::new();
-        let endpoint = String::from("api/v2/token/refresh");
-        let api_url = format!("{}/{endpoint}", app.auth_uri);
-
-        let payload = serde_json::json!({
-            "access_token": app.token.token
-        });
-
-        match client.post(api_url).json(&payload).send().await {
-            Ok(response) => match response
-                .json::<crate::api::refresh_token::response::Response>()
-                .await
-            {
-                Ok(resp) => {
-                    if resp.data.is_empty() {
-                        Err(std::io::Error::other(String::from("No token returned")))
-                    } else {
-                        Ok(resp.data[0].clone())
-                    }
-                }
-                Err(err) => Err(std::io::Error::other(err.to_string())),
-            },
-            Err(err) => Err(std::io::Error::other(err.to_string())),
-        }
     }
 }
 
@@ -279,7 +213,8 @@ async fn some_work(
 
             println!("CoverArt path: {coverart_queue_path:?}");
 
-            match apply_metadata(&song_queue_path, &coverart_queue_path, &metadata).await {
+            match metadata::apply_metadata(&song_queue_path, &coverart_queue_path, &metadata).await
+            {
                 Ok(_applied) => {
                     match api::update_queued_song::update_queued_song(
                         app,
@@ -504,144 +439,4 @@ pub async fn generate_coverart_queue_dir_and_filename() -> (String, String) {
     let directory = icarus_envy::environment::get_root_directory().await.value;
 
     (directory, filename)
-}
-
-pub async fn apply_metadata(
-    song_queue_path: &String,
-    coverart_queue_path: &String,
-    metadata: &api::get_metadata_queue::response::Metadata,
-) -> Result<bool, std::io::Error> {
-    // Apply metadata fields
-    let types = icarus_meta::types::all_metadata_types();
-
-    for t in types {
-        match t {
-            icarus_meta::types::Type::Album => {
-                let meta_type =
-                    icarus_meta::types::MetadataType::from_string(metadata.album.clone());
-                match icarus_meta::meta::metadata::set_meta_value(t, song_queue_path, meta_type) {
-                    Ok(_) => {}
-                    Err(_err) => {
-                        return Err(_err);
-                    }
-                }
-            }
-            icarus_meta::types::Type::AlbumArtist => {
-                let meta_type =
-                    icarus_meta::types::MetadataType::from_string(metadata.album_artist.clone());
-                match icarus_meta::meta::metadata::set_meta_value(t, song_queue_path, meta_type) {
-                    Ok(_) => {}
-                    Err(_err) => {
-                        return Err(_err);
-                    }
-                }
-            }
-            icarus_meta::types::Type::Artist => {
-                let meta_type =
-                    icarus_meta::types::MetadataType::from_string(metadata.artist.clone());
-                match icarus_meta::meta::metadata::set_meta_value(t, song_queue_path, meta_type) {
-                    Ok(_) => {}
-                    Err(_err) => {
-                        return Err(_err);
-                    }
-                }
-            }
-            icarus_meta::types::Type::Date => {
-                // TODO: Do something about this discrepancy
-                let meta_type =
-                    icarus_meta::types::MetadataType::from_string(metadata.year.to_string());
-                match icarus_meta::meta::metadata::set_meta_value(t, song_queue_path, meta_type) {
-                    Ok(_) => {}
-                    Err(_err) => {
-                        return Err(_err);
-                    }
-                }
-            }
-            icarus_meta::types::Type::Disc => {
-                let meta_type = icarus_meta::types::MetadataType::from_int(metadata.disc);
-                match icarus_meta::meta::metadata::set_meta_value(t, song_queue_path, meta_type) {
-                    Ok(_) => {}
-                    Err(_err) => {
-                        return Err(_err);
-                    }
-                }
-            }
-            icarus_meta::types::Type::Genre => {
-                let meta_type =
-                    icarus_meta::types::MetadataType::from_string(metadata.genre.clone());
-                match icarus_meta::meta::metadata::set_meta_value(t, song_queue_path, meta_type) {
-                    Ok(_) => {}
-                    Err(_err) => {
-                        return Err(_err);
-                    }
-                }
-            }
-            icarus_meta::types::Type::Title => {
-                let meta_type =
-                    icarus_meta::types::MetadataType::from_string(metadata.title.clone());
-                match icarus_meta::meta::metadata::set_meta_value(t, song_queue_path, meta_type) {
-                    Ok(_) => {}
-                    Err(_err) => {
-                        return Err(_err);
-                    }
-                }
-            }
-            icarus_meta::types::Type::Track => {
-                let meta_type = icarus_meta::types::MetadataType::from_int(metadata.track);
-                match icarus_meta::meta::metadata::set_meta_value(t, song_queue_path, meta_type) {
-                    Ok(_) => {}
-                    Err(_err) => {
-                        return Err(_err);
-                    }
-                }
-            }
-            icarus_meta::types::Type::TrackCount => {
-                let meta_type = icarus_meta::types::MetadataType::from_int(metadata.track_count);
-                match icarus_meta::meta::metadata::set_meta_value(t, song_queue_path, meta_type) {
-                    Ok(_) => {}
-                    Err(_err) => {
-                        return Err(_err);
-                    }
-                }
-            }
-            icarus_meta::types::Type::DiscCount => {
-                let meta_type = icarus_meta::types::MetadataType::from_int(metadata.disc_count);
-                match icarus_meta::meta::metadata::set_meta_value(t, song_queue_path, meta_type) {
-                    Ok(_) => {}
-                    Err(_err) => {
-                        return Err(_err);
-                    }
-                }
-            }
-        }
-    }
-
-    // Apply coverart
-    match icarus_meta::meta::coverart::contains_coverart(song_queue_path) {
-        Ok((exists, size)) => {
-            if exists {
-                println!("Coverart exists: {size:?} size");
-                match icarus_meta::meta::coverart::remove_coverart(song_queue_path) {
-                    Ok(_data) => {}
-                    Err(err) => {
-                        return Err(err);
-                    }
-                }
-            }
-
-            match icarus_meta::meta::coverart::set_coverart(song_queue_path, coverart_queue_path) {
-                Ok(_data) => {
-                    if _data.is_empty() {
-                        println!("There was an issue");
-                        Ok(false)
-                    } else {
-                        println!("Success in applying coverart to song");
-                        Ok(true)
-                    }
-                }
-                Err(err) => Err(err),
-            }
-        }
-        Err(err) => Err(err),
-    }
 }
