@@ -251,11 +251,33 @@ async fn some_work(
     std::io::Error,
 > {
     match prep_song(app, song_queue_id).await {
-        Ok(((song_directory, song_filename), coverart_queue_path, metadata, coverart_queue_id)) => {
+        Ok((
+            (song_directory, song_filename),
+            (coverart_directory, coverart_filename),
+            metadata,
+            coverart_queue_id,
+        )) => {
+            println!("Prepping song");
+
             let mut song_queue_path: String = String::new();
             let p = std::path::Path::new(&song_directory);
             let sp = p.join(&song_filename);
             song_queue_path.push_str(sp.to_str().unwrap_or_default());
+            let coverart_queue = icarus_models::coverart::CoverArt {
+                directory: coverart_directory,
+                filename: coverart_filename,
+                ..Default::default()
+            };
+            let coverart_queue_path = match coverart_queue.get_path() {
+                Ok(path) => path,
+                Err(err) => {
+                    eprintln!("Could not get CoverArt path");
+                    eprintln!("Error: {err:?}");
+                    std::process::exit(-1);
+                }
+            };
+
+            println!("CoverArt path: {coverart_queue_path:?}");
 
             match apply_metadata(&song_queue_path, &coverart_queue_path, &metadata).await {
                 Ok(_applied) => {
@@ -272,6 +294,7 @@ async fn some_work(
                                 .await
                             {
                                 Ok(_inner_response) => {
+                                    println!("Updated queued song");
                                     println!("Response: {_inner_response:?}");
 
                                     // TODO: Place this somewhere else
@@ -299,7 +322,9 @@ async fn some_work(
                                                             println!("CoverArt sent and successfully parsed response");
                                                             println!("json: {resp:?}");
                                                             let mut coverart = resp.data[0].clone();
-                                                            coverart.path = coverart_queue_path.clone();
+                                                            coverart.directory = coverart_queue.directory;
+                                                            coverart.filename = coverart_queue.filename;
+
                                                             Ok((song.clone(), coverart.clone(), (metadata.song_queue_id, song_queue_path), (coverart_queue_id, coverart_queue_path)))
                                                         }
                                                         Err(err) => {
@@ -335,7 +360,7 @@ async fn prep_song(
 ) -> Result<
     (
         (String, String),
-        String,
+        (String, String),
         api::get_metadata_queue::response::Metadata,
         uuid::Uuid,
     ),
@@ -389,16 +414,25 @@ async fn prep_song(
                                                             Ok(coverart_queue_bytes) => {
                                                                 let (directory, filename) = generate_coverart_queue_dir_and_filename().await;
                                                                 let coverart = icarus_models::coverart::CoverArt {
-                                                                    path: directory + "/" + &filename,
+                                                                    directory,
+                                                                    filename,
                                                                     data: coverart_queue_bytes,
                                                                     ..Default::default()
                                                                 };
                                                                 coverart.save_to_filesystem().unwrap();
-                                                                let coverart_queue_path = std::path::Path::new(&coverart.path);
+                                                                let coverart_queue_fs_path = match coverart.get_path() {
+                                                                    Ok(path) => {
+                                                                        path
+                                                                    }
+                                                                    Err(err) => {
+                                                                        eprintln!("Error: {err:?}");
+                                                                        std::process::exit(-1);
+                                                                    }
+                                                                };
+                                                                let coverart_queue_path = std::path::Path::new(&coverart_queue_fs_path);
                                                                 println!("Saved coverart queue file at: {coverart_queue_path:?}");
 
-                                                                let c_path = util::path_buf_to_string(coverart_queue_path);
-                                                                Ok(((song.directory, song.filename), c_path, metadata.clone(), *coverart_queue_id))
+                                                                Ok(((song.directory, song.filename), (coverart.directory, coverart.filename), metadata.clone(), *coverart_queue_id))
                                                             }
                                                             Err(err) => {
                                                                 Err(err)
