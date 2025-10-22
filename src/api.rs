@@ -158,6 +158,7 @@ pub mod get_coverart_queue {
         #[derive(Debug, Deserialize, Serialize)]
         pub struct CoverArtQueue {
             pub id: uuid::Uuid,
+            pub file_type: String,
             pub song_queue_id: uuid::Uuid,
         }
 

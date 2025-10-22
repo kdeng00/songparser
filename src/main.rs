@@ -341,13 +341,14 @@ async fn prep_song(
                                         Ok(response) => {
                                             match response.json::<api::get_coverart_queue::response::Response>().await {
                                                 Ok(response) => {
-                                                    let coverart_queue_id = &response.data[0].id;
+                                                    let coverart_queue = &response.data[0];
+                                                    let coverart_queue_id = coverart_queue.id;
                                                     println!("Coverart queue Id: {coverart_queue_id:?}");
 
-                                                    match api::get_coverart_queue::get_data(app, coverart_queue_id).await {
+                                                    match api::get_coverart_queue::get_data(app, &coverart_queue_id).await {
                                                         Ok(response) => match api::parsing::parse_response_into_bytes(response).await {
                                                             Ok(coverart_queue_bytes) => {
-                                                                let (directory, filename) = generate_coverart_queue_dir_and_filename().await;
+                                                                let (directory, filename) = generate_coverart_queue_dir_and_filename(&coverart_queue.file_type).await;
                                                                 let coverart = icarus_models::coverart::CoverArt {
                                                                     directory,
                                                                     filename,
@@ -367,7 +368,7 @@ async fn prep_song(
                                                                 let coverart_queue_path = std::path::Path::new(&coverart_queue_fs_path);
                                                                 println!("Saved coverart queue file at: {coverart_queue_path:?}");
 
-                                                                Ok(((song.directory, song.filename), (coverart.directory, coverart.filename), metadata.clone(), *coverart_queue_id))
+                                                                Ok(((song.directory, song.filename), (coverart.directory, coverart.filename), metadata.clone(), coverart_queue_id))
                                                             }
                                                             Err(err) => {
                                                                 Err(err)
@@ -413,7 +414,7 @@ pub async fn generate_song_queue_dir_and_filename() -> (String, String) {
 }
 
 // TODO: Consider having something like this in icarus_models
-pub async fn generate_coverart_queue_dir_and_filename() -> (String, String) {
+pub async fn generate_coverart_queue_dir_and_filename(file_type: &str) -> (String, String) {
     use rand::Rng;
 
     let mut filename: String = String::new();
@@ -432,8 +433,15 @@ pub async fn generate_coverart_queue_dir_and_filename() -> (String, String) {
         }
     }
 
-    // TODO: Do not hard code the file extension
-    filename += ".jpeg";
+    filename += if file_type == icarus_meta::detection::coverart::constants::JPEG_TYPE
+        || file_type == icarus_meta::detection::coverart::constants::JPG_TYPE
+    {
+        ".jpeg"
+    } else if file_type == icarus_meta::detection::coverart::constants::PNG_TYPE {
+        ".png"
+    } else {
+        ""
+    };
 
     // TODO: Consider separating song and coverart when saving to the filesystem
     let directory = icarus_envy::environment::get_root_directory().await.value;
