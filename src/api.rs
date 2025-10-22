@@ -199,11 +199,10 @@ pub mod update_queued_song {
 
         println!("Queued song path: {:?}", queued_song.path);
 
-        // TODO: Make the filename random
         let form = reqwest::multipart::Form::new().part(
             "file",
             reqwest::multipart::Part::bytes(std::fs::read(&queued_song.path).unwrap())
-                .file_name("track01.flac"),
+                .file_name(queued_song.song.filename.clone()),
         );
 
         let url = format!("{}/api/v2/song/queue/{}", app.uri, queued_song.id);
