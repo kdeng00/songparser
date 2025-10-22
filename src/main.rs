@@ -232,8 +232,9 @@ async fn some_work(
                                     println!("Updated queued song");
                                     println!("Response: {_inner_response:?}");
 
-                                    // TODO: Place this somewhere else
-                                    let song_type = String::from("flac");
+                                    let song_type = String::from(
+                                        icarus_meta::detection::song::constants::FLAC_TYPE,
+                                    );
 
                                     match api::create_song::create(
                                         app, &metadata, user_id, &song_type,
@@ -424,9 +425,9 @@ pub async fn generate_coverart_queue_dir_and_filename(file_type: &str) -> (Strin
     filename += if file_type == icarus_meta::detection::coverart::constants::JPEG_TYPE
         || file_type == icarus_meta::detection::coverart::constants::JPG_TYPE
     {
-        ".jpeg"
+        icarus_models::constants::file_extensions::image::JPEGEXTENSION
     } else if file_type == icarus_meta::detection::coverart::constants::PNG_TYPE {
-        ".png"
+        icarus_models::constants::file_extensions::image::PNGEXTENSION
     } else {
         ""
     };
