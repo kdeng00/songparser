@@ -306,11 +306,12 @@ async fn prep_song(
             // Process data here...
             match api::parsing::parse_response_into_bytes(response).await {
                 Ok(song_bytes) => {
-                    let (song_directory, song_filename) =
-                        generate_song_queue_dir_and_filename().await;
                     let song = icarus_models::song::Song {
-                        directory: song_directory,
-                        filename: song_filename,
+                        directory: icarus_envy::environment::get_root_directory().await.value,
+                        filename: icarus_models::song::generate_filename(
+                            icarus_models::types::MusicTypes::FlacExtension,
+                            true,
+                        ),
                         data: song_bytes,
                         ..Default::default()
                     };
@@ -401,19 +402,6 @@ async fn prep_song(
 }
 
 // TODO: Consider having something like this in icarus_models
-pub async fn generate_song_queue_dir_and_filename() -> (String, String) {
-    let mut song = icarus_models::song::Song::default();
-    song.filename = icarus_models::song::generate_filename(
-        icarus_models::types::MusicTypes::FlacExtension,
-        true,
-    );
-
-    song.directory = icarus_envy::environment::get_root_directory().await.value;
-
-    (song.directory, song.filename)
-}
-
-// TODO: Consider having something like this in icarus_models
 pub async fn generate_coverart_queue_dir_and_filename(file_type: &str) -> (String, String) {
     use rand::Rng;
 
@@ -423,7 +411,7 @@ pub async fn generate_coverart_queue_dir_and_filename(file_type: &str) -> (Strin
     let some_chars: String = String::from("abcdefghij0123456789");
     let mut rng = rand::rng();
 
-    for _i in 0..filename_len {
+    for _ in 0..filename_len {
         let random_number: i32 = rng.random_range(0..=19);
         let index = random_number as usize;
         let rando_char = some_chars.chars().nth(index);
