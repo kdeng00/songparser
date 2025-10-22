@@ -193,21 +193,20 @@ pub mod refresh_token {
 pub mod update_queued_song {
     pub async fn update_queued_song(
         app: &crate::config::App,
-        song_path: &String,
-        song_queue_id: &uuid::Uuid,
+        queued_song: &crate::queued_item::QueuedSong,
     ) -> Result<reqwest::Response, reqwest::Error> {
         let client = reqwest::Client::builder().build()?;
 
-        println!("Song path: {song_path:?}");
+        println!("Queued song path: {:?}", queued_song.path);
 
         // TODO: Make the filename random
         let form = reqwest::multipart::Form::new().part(
             "file",
-            reqwest::multipart::Part::bytes(std::fs::read(song_path).unwrap())
+            reqwest::multipart::Part::bytes(std::fs::read(&queued_song.path).unwrap())
                 .file_name("track01.flac"),
         );
 
-        let url = format!("{}/api/v2/song/queue/{song_queue_id}", app.uri);
+        let url = format!("{}/api/v2/song/queue/{}", app.uri, queued_song.id);
         println!("Url: {url:?}");
 
         let (key, header) = crate::api::auth_header(app).await;
@@ -274,15 +273,14 @@ pub mod create_song {
 }
 
 pub mod create_coverart {
-
     pub async fn create(
         app: &crate::config::App,
-        song_id: &uuid::Uuid,
-        coverart_queue_id: &uuid::Uuid,
+        song: &icarus_models::song::Song,
+        queued_coverart: &crate::queued_item::QueuedCoverArt,
     ) -> Result<reqwest::Response, reqwest::Error> {
         let client = reqwest::Client::builder().build()?;
         let url = format!("{}/api/v2/coverart", app.uri);
-        let payload = get_payload(song_id, coverart_queue_id);
+        let payload = get_payload(&song.id, &queued_coverart.id);
         let (key, header) = crate::api::auth_header(app).await;
         let request = client.post(url).json(&payload).header(key, header);
 
@@ -309,12 +307,12 @@ pub mod wipe_data {
     pub mod song_queue {
         pub async fn wipe_data(
             app: &crate::config::App,
-            song_queue_id: &uuid::Uuid,
+            queued_song: &crate::queued_item::QueuedSong,
         ) -> Result<reqwest::Response, reqwest::Error> {
             let client = reqwest::Client::builder().build()?;
             let url = format!("{}/api/v2/song/queue/data/wipe", app.uri);
             let payload = serde_json::json!({
-                "song_queue_id": song_queue_id
+                "song_queue_id": queued_song.id
             });
             let (key, header) = crate::api::auth_header(app).await;
             let request = client.patch(url).json(&payload).header(key, header);
@@ -333,12 +331,12 @@ pub mod wipe_data {
     pub mod coverart_queue {
         pub async fn wipe_data(
             app: &crate::config::App,
-            coverart_queue_id: &uuid::Uuid,
+            queued_coverart: &crate::queued_item::QueuedCoverArt,
         ) -> Result<reqwest::Response, reqwest::Error> {
             let client = reqwest::Client::builder().build()?;
             let url = format!("{}/api/v2/coverart/queue/data/wipe", app.uri);
             let payload = serde_json::json!({
-                "coverart_queue_id": coverart_queue_id
+                "coverart_queue_id": queued_coverart.id
             });
             let (key, header) = crate::api::auth_header(app).await;
             let request = client.patch(url).json(&payload).header(key, header);

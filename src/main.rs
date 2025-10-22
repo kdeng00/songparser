@@ -2,6 +2,7 @@ pub mod api;
 pub mod auth;
 pub mod config;
 pub mod metadata;
+pub mod queued_item;
 pub mod util;
 
 pub const SECONDS_TO_SLEEP: u64 = 5;
@@ -59,14 +60,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let user_id = song_queue_item.data[0].user_id;
 
                     match some_work(&app, &song_queue_id, &user_id).await {
-                        Ok((
-                            song,
-                            coverart,
-                            (song_queue_id, _song_queue_path),
-                            (coverart_queue_id, _coverart_queue_path),
-                        )) => {
-                            match wipe_data_from_queues(&app, &song_queue_id, &coverart_queue_id)
-                                .await
+                        Ok((song, coverart, _metadata, queued_song, queued_coverart)) => {
+                            match wipe_data_from_queues(&app, &queued_song, &queued_coverart).await
                             {
                                 Ok(_) => match cleanup(&song, &coverart).await {
                                     Ok(_) => {
@@ -101,16 +96,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn wipe_data_from_queues(
     app: &config::App,
-    song_queue_id: &uuid::Uuid,
-    coverart_queue_id: &uuid::Uuid,
+    queued_song: &crate::queued_item::QueuedSong,
+    queued_coverart: &crate::queued_item::QueuedCoverArt,
 ) -> Result<(), std::io::Error> {
-    match api::wipe_data::song_queue::wipe_data(app, song_queue_id).await {
+    match api::wipe_data::song_queue::wipe_data(app, queued_song).await {
         Ok(response) => match response
             .json::<api::wipe_data::song_queue::response::Response>()
             .await
         {
             Ok(_resp) => {
-                match api::wipe_data::coverart_queue::wipe_data(app, coverart_queue_id).await {
+                match api::wipe_data::coverart_queue::wipe_data(app, queued_coverart).await {
                     Ok(inner_response) => match inner_response
                         .json::<api::wipe_data::coverart_queue::response::Response>()
                         .await
@@ -179,50 +174,19 @@ async fn some_work(
     (
         icarus_models::song::Song,
         icarus_models::coverart::CoverArt,
-        (uuid::Uuid, String),
-        (uuid::Uuid, String),
+        api::get_metadata_queue::response::Metadata,
+        queued_item::QueuedSong,
+        queued_item::QueuedCoverArt,
     ),
     std::io::Error,
 > {
     match prep_song(app, song_queue_id).await {
-        Ok((
-            (song_directory, song_filename),
-            (coverart_directory, coverart_filename),
-            metadata,
-            coverart_queue_id,
-        )) => {
+        Ok((queued_song, queued_coverart, metadata)) => {
             println!("Prepping song");
 
-            let mut song_queue_path: String = String::new();
-            let p = std::path::Path::new(&song_directory);
-            let sp = p.join(&song_filename);
-            song_queue_path.push_str(sp.to_str().unwrap_or_default());
-            let coverart_queue = icarus_models::coverart::CoverArt {
-                directory: coverart_directory,
-                filename: coverart_filename,
-                ..Default::default()
-            };
-            let coverart_queue_path = match coverart_queue.get_path() {
-                Ok(path) => path,
-                Err(err) => {
-                    eprintln!("Could not get CoverArt path");
-                    eprintln!("Error: {err:?}");
-                    std::process::exit(-1);
-                }
-            };
-
-            println!("CoverArt path: {coverart_queue_path:?}");
-
-            match metadata::apply_metadata(&song_queue_path, &coverart_queue_path, &metadata).await
-            {
+            match metadata::apply_metadata(&queued_song, &queued_coverart, &metadata).await {
                 Ok(_applied) => {
-                    match api::update_queued_song::update_queued_song(
-                        app,
-                        &song_queue_path,
-                        song_queue_id,
-                    )
-                    .await
-                    {
+                    match api::update_queued_song::update_queued_song(app, &queued_song).await {
                         Ok(response) => {
                             match response
                                 .json::<api::update_queued_song::response::Response>()
@@ -249,19 +213,19 @@ async fn some_work(
                                                 println!("Response: {resp:?}");
 
                                                 let mut song = resp.data[0].clone();
-                                                song.directory = song_directory;
-                                                song.filename = song_filename;
+                                                song.directory = queued_song.song.directory.clone();
+                                                song.filename = queued_song.song.filename.clone();
 
-                                                match api::create_coverart::create(app, &song.id, &coverart_queue_id).await {
+                                                match api::create_coverart::create(app, &song, &queued_coverart).await {
                                                     Ok(response) => match response.json::<api::create_coverart::response::Response>().await {
                                                         Ok(resp) => {
                                                             println!("CoverArt sent and successfully parsed response");
                                                             println!("json: {resp:?}");
                                                             let mut coverart = resp.data[0].clone();
-                                                            coverart.directory = coverart_queue.directory;
-                                                            coverart.filename = coverart_queue.filename;
+                                                            coverart.directory = queued_coverart.coverart.directory.clone();
+                                                            coverart.filename = queued_coverart.coverart.filename.clone();
 
-                                                            Ok((song.clone(), coverart.clone(), (metadata.song_queue_id, song_queue_path), (coverart_queue_id, coverart_queue_path)))
+                                                            Ok((song.clone(), coverart.clone(), metadata, queued_song.clone(), queued_coverart.clone()))
                                                         }
                                                         Err(err) => {
                                                             Err(std::io::Error::other(err.to_string()))
@@ -295,10 +259,9 @@ async fn prep_song(
     song_queue_id: &uuid::Uuid,
 ) -> Result<
     (
-        (String, String),
-        (String, String),
+        queued_item::QueuedSong,
+        queued_item::QueuedCoverArt,
         api::get_metadata_queue::response::Metadata,
-        uuid::Uuid,
     ),
     reqwest::Error,
 > {
@@ -317,14 +280,25 @@ async fn prep_song(
                         ..Default::default()
                     };
                     let songpath = song.song_path().unwrap_or_default();
-                    let song_queue_path = match song.save_to_filesystem() {
-                        Ok(_) => std::path::Path::new(&songpath),
-                        Err(_err) => std::path::Path::new(""),
-                    };
 
-                    println!("Saved at: {song_queue_path:?}");
+                    let queued_song: crate::queued_item::QueuedSong =
+                        match song.save_to_filesystem() {
+                            Ok(_) => queued_item::QueuedSong {
+                                id: *song_queue_id,
+                                song,
+                                path: songpath,
+                            },
+                            Err(err) => {
+                                eprintln!("Error: {err:?}");
+                                queued_item::QueuedSong {
+                                    ..Default::default()
+                                }
+                            }
+                        };
 
-                    match api::get_metadata_queue::get(app, song_queue_id).await {
+                    println!("Saved at: {:?}", queued_song.path);
+
+                    match api::get_metadata_queue::get(app, &queued_song.id).await {
                         Ok(response) => {
                             match response
                                 .json::<api::get_metadata_queue::response::Response>()
@@ -339,7 +313,7 @@ async fn prep_song(
                                     println!("Created at: {created_at:?}");
 
                                     println!("Getting coverart queue");
-                                    match api::get_coverart_queue::get(app, song_queue_id).await {
+                                    match api::get_coverart_queue::get(app, &queued_song.id).await {
                                         Ok(response) => {
                                             match response.json::<api::get_coverart_queue::response::Response>().await {
                                                 Ok(response) => {
@@ -367,10 +341,16 @@ async fn prep_song(
                                                                         std::process::exit(-1);
                                                                     }
                                                                 };
-                                                                let coverart_queue_path = std::path::Path::new(&coverart_queue_fs_path);
-                                                                println!("Saved coverart queue file at: {coverart_queue_path:?}");
 
-                                                                Ok(((song.directory, song.filename), (coverart.directory, coverart.filename), metadata.clone(), coverart_queue_id))
+                                                                let queued_coverart = queued_item::QueuedCoverArt {
+                                                                    id: coverart_queue_id,
+                                                                    coverart,
+                                                                    path: coverart_queue_fs_path
+                                                                };
+
+                                                                println!("Saved coverart queue file at: {:?}", queued_coverart.path);
+
+                                                                Ok((queued_song, queued_coverart, metadata.clone()))
                                                             }
                                                             Err(err) => {
                                                                 Err(err)
