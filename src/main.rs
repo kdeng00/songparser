@@ -11,22 +11,27 @@ pub const SECONDS_TO_SLEEP: u64 = 5;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut app = config::App {
-        uri: icarus_envy::environment::get_icarus_base_api_url()
-            .await
-            .value,
-        auth_uri: icarus_envy::environment::get_icarus_auth_base_api_url()
-            .await
-            .value,
-        ..Default::default()
-    };
+    let mut app = config::initialize_app_config().await;
     println!("Base URL: {:?}", app.uri);
     println!("Auth URL: {:?}", app.auth_uri);
 
-    match auth::get_token(&app).await {
-        Ok(login_result) => {
-            app.token = login_result;
+    if !app.does_root_directory_exists() {
+        eprintln!("Root directory does not exist");
+        println!("Attempting to create directory");
+        let path = std::path::Path::new(&app.root_directory);
+        match std::fs::create_dir(path) {
+            Ok(_) => {
+                println!("Directory created");
+            }
+            Err(err) => {
+                eprintln!("Error creating directory: {err:?}");
+                std::process::exit(-1);
+            }
         }
+    }
+
+    app.token = match auth::get_token(&app).await {
+        Ok(login_result) => login_result,
         Err(err) => {
             eprintln!("Error: {err:?}");
             std::process::exit(-1);
