@@ -139,67 +139,9 @@ pub async fn prep_song(
                                 .await
                             {
                                 Ok(response) => {
-                                    let id = &response.data[0].id;
-                                    let created_at = &response.data[0].created_at;
-                                    let metadata = &response.data[0].metadata;
-                                    println!("Id: {id:?}");
-                                    println!("Metadata: {metadata:?}");
-                                    println!("Created at: {created_at:?}");
-
-                                    println!("Getting coverart queue");
-                                    match crate::api::get_coverart_queue::get(app, &queued_song.id).await {
-                                        Ok(response) => {
-                                            match response.json::<crate::api::get_coverart_queue::response::Response>().await {
-                                                Ok(response) => {
-                                                    let coverart_queue = &response.data[0];
-                                                    let coverart_queue_id = coverart_queue.id;
-                                                    println!("Coverart queue Id: {coverart_queue_id:?}");
-
-                                                    match crate::api::get_coverart_queue::get_data(app, &coverart_queue_id).await {
-                                                        Ok(response) => match crate::api::parsing::parse_response_into_bytes(response).await {
-                                                            Ok(coverart_queue_bytes) => {
-                                                                let (directory, filename) = crate::util::generate_coverart_queue_dir_and_filename(&coverart_queue.file_type).await;
-                                                                let coverart = icarus_models::coverart::CoverArt {
-                                                                    directory,
-                                                                    filename,
-                                                                    data: coverart_queue_bytes,
-                                                                    ..Default::default()
-                                                                };
-                                                                coverart.save_to_filesystem().unwrap();
-                                                                let coverart_queue_fs_path = match coverart.get_path() {
-                                                                    Ok(path) => {
-                                                                        path
-                                                                    }
-                                                                    Err(err) => {
-                                                                        eprintln!("Error: {err:?}");
-                                                                        std::process::exit(-1);
-                                                                    }
-                                                                };
-
-                                                                let queued_coverart = crate::queued_item::QueuedCoverArt {
-                                                                    id: coverart_queue_id,
-                                                                    coverart,
-                                                                    path: coverart_queue_fs_path
-                                                                };
-
-                                                                println!("Saved coverart queue file at: {:?}", queued_coverart.path);
-
-                                                                Ok((queued_song, queued_coverart, metadata.clone()))
-                                                            }
-                                                            Err(err) => {
-                                                                Err(err)
-                                                            }
-                                                        }
-                                                        Err(err) => {
-                                                            Err(err)
-                                                        }
-                                                    }
-                                                }
-                                                Err(err) => {
-                                                    Err(err)
-                                                }
-                                            }
-                                        }
+                                    let bod = &response.data[0];
+                                    match process_coverart(app, &queued_song.id, bod).await {
+                                        Ok(qc) => Ok((queued_song, qc, bod.metadata.clone())),
                                         Err(err) => Err(err),
                                     }
                                 }
@@ -213,6 +155,89 @@ pub async fn prep_song(
             }
         }
         Err(err) => Err(err),
+    }
+}
+
+pub async fn process_coverart(
+    app: &crate::config::App,
+    queued_song_id: &uuid::Uuid,
+    queued_item: &crate::api::get_metadata_queue::response::QueueItem,
+) -> Result<crate::queued_item::QueuedCoverArt, reqwest::Error> {
+    let id = queued_item.id;
+    let created_at = queued_item.created_at;
+    let metadata = &queued_item.metadata;
+    println!("Id: {id:?}");
+    println!("Metadata: {metadata:?}");
+    println!("Created at: {created_at:?}");
+
+    println!("Getting coverart queue");
+    match crate::api::get_coverart_queue::get(app, queued_song_id).await {
+        Ok(response) => {
+            match response
+                .json::<crate::api::get_coverart_queue::response::Response>()
+                .await
+            {
+                Ok(response) => {
+                    let coverart_queue = &response.data[0];
+                    let coverart_queue_id = coverart_queue.id;
+                    println!("Coverart queue Id: {coverart_queue_id:?}");
+
+                    match crate::api::get_coverart_queue::get_data(app, &coverart_queue_id).await {
+                        Ok(response) => {
+                            match crate::api::parsing::parse_response_into_bytes(response).await {
+                                Ok(coverart_queue_bytes) => {
+                                    let queued_coverart = init_queued_coverart(
+                                        &coverart_queue_id,
+                                        &coverart_queue.file_type,
+                                        coverart_queue_bytes,
+                                    )
+                                    .await;
+                                    println!(
+                                        "Saved coverart queue file at: {:?}",
+                                        queued_coverart.path
+                                    );
+
+                                    Ok(queued_coverart)
+                                }
+                                Err(err) => Err(err),
+                            }
+                        }
+                        Err(err) => Err(err),
+                    }
+                }
+                Err(err) => Err(err),
+            }
+        }
+        Err(err) => Err(err),
+    }
+}
+
+async fn init_queued_coverart(
+    coverart_queue_id: &uuid::Uuid,
+    file_type: &str,
+    bytes: Vec<u8>,
+) -> crate::queued_item::QueuedCoverArt {
+    // TODO: Consider separating song and coverart when saving to the filesystem
+    let covart_type = if file_type == "png" {
+        icarus_models::types::CoverArtTypes::PngExtension
+    } else if file_type == "jpeg" {
+        icarus_models::types::CoverArtTypes::JpegExtension
+    } else {
+        // TODO: This doesn't seem right
+        icarus_models::types::CoverArtTypes::JpgExtension
+    };
+    let coverart = icarus_models::coverart::CoverArt {
+        directory: icarus_envy::environment::get_root_directory().await.value,
+        filename: icarus_models::coverart::generate_filename(covart_type, true),
+        data: bytes,
+        ..Default::default()
+    };
+    coverart.save_to_filesystem().unwrap();
+    let coverart_queue_fs_path = coverart.get_path().unwrap();
+    crate::queued_item::QueuedCoverArt {
+        id: *coverart_queue_id,
+        coverart,
+        path: coverart_queue_fs_path,
     }
 }
 
