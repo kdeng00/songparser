@@ -197,6 +197,10 @@ pub async fn process_coverart(
                                         "Saved coverart queue file at: {:?}",
                                         queued_coverart.path
                                     );
+                                    println!(
+                                        "Queued CoverArt file type: {:?}",
+                                        queued_coverart.coverart.file_type
+                                    );
 
                                     Ok(queued_coverart)
                                 }
@@ -237,6 +241,7 @@ async fn init_queued_coverart(
                 panic!("Error initializing queued CoverArt");
             }
         },
+        file_type: String::from(file_type),
         data: bytes,
         ..Default::default()
     };

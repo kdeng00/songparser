@@ -39,8 +39,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     loop {
-        println!("Token: {:?}", app.token);
-
         if app.token.token_expired() {
             println!("Token expired");
             app.token = match auth::get_refresh_token(&app).await {
