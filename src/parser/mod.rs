@@ -107,9 +107,10 @@ pub async fn prep_song(
                     let song = icarus_models::song::Song {
                         directory: icarus_envy::environment::get_root_directory().await.value,
                         filename: icarus_models::song::generate_filename(
-                            icarus_models::types::MusicTypes::FlacExtension,
+                            icarus_models::types::MusicType::FlacExtension,
                             true,
-                        ),
+                        )
+                        .unwrap(),
                         data: song_bytes,
                         ..Default::default()
                     };
@@ -218,17 +219,24 @@ async fn init_queued_coverart(
     bytes: Vec<u8>,
 ) -> crate::queued_item::QueuedCoverArt {
     // TODO: Consider separating song and coverart when saving to the filesystem
-    let covart_type = if file_type == "png" {
-        icarus_models::types::CoverArtTypes::PngExtension
-    } else if file_type == "jpeg" {
-        icarus_models::types::CoverArtTypes::JpegExtension
+    let covart_type = if file_type == icarus_meta::detection::coverart::constants::PNG_TYPE {
+        icarus_models::types::CoverArtType::PngExtension
+    } else if file_type == icarus_meta::detection::coverart::constants::JPEG_TYPE {
+        icarus_models::types::CoverArtType::JpegExtension
+    } else if file_type == icarus_meta::detection::coverart::constants::JPG_TYPE {
+        icarus_models::types::CoverArtType::JpgExtension
     } else {
-        // TODO: This doesn't seem right
-        icarus_models::types::CoverArtTypes::JpgExtension
+        icarus_models::types::CoverArtType::None
     };
     let coverart = icarus_models::coverart::CoverArt {
         directory: icarus_envy::environment::get_root_directory().await.value,
-        filename: icarus_models::coverart::generate_filename(covart_type, true),
+        filename: match icarus_models::coverart::generate_filename(covart_type, true) {
+            Ok(filename) => filename,
+            Err(err) => {
+                eprintln!("Error generating CoverArt filename: {err:?}");
+                panic!("Error initializing queued CoverArt");
+            }
+        },
         data: bytes,
         ..Default::default()
     };

@@ -1,5 +1,4 @@
 pub mod fetch_next_queue_item {
-
     pub async fn fetch_next_queue_item(
         app: &crate::config::App,
     ) -> Result<reqwest::Response, reqwest::Error> {
@@ -12,9 +11,7 @@ pub mod fetch_next_queue_item {
     }
 
     pub mod response {
-        use serde::{Deserialize, Serialize};
-
-        #[derive(Debug, Deserialize, Serialize)]
+        #[derive(Debug, serde::Deserialize, serde::Serialize)]
         pub struct QueueItem {
             pub id: uuid::Uuid,
             pub filename: String,
@@ -22,7 +19,7 @@ pub mod fetch_next_queue_item {
             pub user_id: uuid::Uuid,
         }
 
-        #[derive(Debug, Deserialize, Serialize)]
+        #[derive(Debug, serde::Deserialize, serde::Serialize)]
         pub struct SongQueueItem {
             pub message: String,
             pub data: Vec<QueueItem>,
