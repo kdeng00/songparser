@@ -75,14 +75,9 @@ pub mod get_metadata_queue {
     ) -> Result<reqwest::Response, reqwest::Error> {
         let client = reqwest::Client::new();
         let endpoint = String::from("api/v2/song/metadata/queue");
-        let api_url = format!("{}/{endpoint}", app.uri);
+        let api_url = format!("{}/{endpoint}?song_queue_id={song_queue_id}", app.uri);
         let (key, header) = super::auth_header(app).await;
-        client
-            .get(api_url)
-            .query(&[("song_queue_id", song_queue_id)])
-            .header(key, header)
-            .send()
-            .await
+        client.get(api_url).header(key, header).send().await
     }
 
     pub mod response {
@@ -128,14 +123,9 @@ pub mod get_coverart_queue {
     ) -> Result<reqwest::Response, reqwest::Error> {
         let client = reqwest::Client::new();
         let endpoint = String::from("api/v2/coverart/queue");
-        let api_url = format!("{}/{endpoint}", app.uri);
+        let api_url = format!("{}/{endpoint}?song_queue_id={song_queue_id}", app.uri);
         let (key, header) = super::auth_header(app).await;
-        client
-            .get(api_url)
-            .query(&[("song_queue_id", song_queue_id)])
-            .header(key, header)
-            .send()
-            .await
+        client.get(api_url).header(key, header).send().await
     }
 
     pub async fn get_data(
