@@ -15,13 +15,9 @@ impl App {
 
 pub async fn initialize_app_config() -> App {
     App {
-        uri: icarus_envy::environment::get_icarus_base_api_url()
-            .await
-            .value,
-        auth_uri: icarus_envy::environment::get_icarus_auth_base_api_url()
-            .await
-            .value,
-        root_directory: icarus_envy::environment::get_root_directory().await.value,
+        uri: icarus_envy::environment::get_icarus_base_api_url().value,
+        auth_uri: icarus_envy::environment::get_icarus_auth_base_api_url().value,
+        root_directory: icarus_envy::environment::get_root_directory().value,
         ..Default::default()
     }
 }

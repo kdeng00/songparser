@@ -6,7 +6,7 @@ pub async fn get_token(
     let api_url = format!("{}/{endpoint}", app.auth_uri);
 
     let payload = serde_json::json!({
-        "passphrase": icarus_envy::environment::get_service_passphrase().await.value,
+        "passphrase": icarus_envy::environment::get_service_passphrase().value,
     });
 
     match client.post(api_url).json(&payload).send().await {

@@ -105,7 +105,7 @@ pub async fn prep_song(
             match crate::api::parsing::parse_response_into_bytes(response).await {
                 Ok(song_bytes) => {
                     let song = icarus_models::song::Song {
-                        directory: icarus_envy::environment::get_root_directory().await.value,
+                        directory: icarus_envy::environment::get_root_directory().value,
                         filename: icarus_models::song::generate_filename(
                             icarus_models::types::MusicType::FlacExtension,
                             true,
@@ -233,7 +233,7 @@ async fn init_queued_coverart(
         icarus_models::types::CoverArtType::None
     };
     let coverart = icarus_models::coverart::CoverArt {
-        directory: icarus_envy::environment::get_root_directory().await.value,
+        directory: icarus_envy::environment::get_root_directory().value,
         filename: match icarus_models::coverart::generate_filename(covart_type, true) {
             Ok(filename) => filename,
             Err(err) => {

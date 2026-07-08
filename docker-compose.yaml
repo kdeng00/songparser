@@ -1,12 +1,11 @@
 version: '3.8' # Use a recent version
 
 services:
-  # Your Rust Application Service
   songparser:
-    build: # Tells docker-compose to build the Dockerfile in the current directory
+    build:
       context: .
-      ssh: ["default"]  # Uses host's SSH agent
-    container_name: songparser # Optional: Give the container a specific name
+      ssh: ["default"]
+    container_name: songparser
     env_file:
       - .env
-    restart: unless-stopped # Optional: Restart policy
+    restart: unless-stopped
