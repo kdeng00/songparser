@@ -2,7 +2,7 @@
 pub struct App {
     pub uri: String,
     pub auth_uri: String,
-    pub token: icarus_models::login_result::LoginResult,
+    pub token: simodels::login_result::LoginResult,
     pub root_directory: String,
 }
 
@@ -15,9 +15,9 @@ impl App {
 
 pub async fn initialize_app_config() -> App {
     App {
-        uri: icarus_envy::environment::get_icarus_base_api_url().value,
-        auth_uri: icarus_envy::environment::get_icarus_auth_base_api_url().value,
-        root_directory: icarus_envy::environment::get_root_directory().value,
+        uri: sienvy::environment::get_soaricarus_base_api_url().value,
+        auth_uri: sienvy::environment::get_soaricarus_auth_base_api_url().value,
+        root_directory: sienvy::environment::get_root_directory().value,
         ..Default::default()
     }
 }

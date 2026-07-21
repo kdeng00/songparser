@@ -4,8 +4,8 @@ pub async fn some_work(
     user_id: &uuid::Uuid,
 ) -> Result<
     (
-        icarus_models::song::Song,
-        icarus_models::coverart::CoverArt,
+        simodels::song::Song,
+        simodels::coverart::CoverArt,
         crate::api::get_metadata_queue::response::Metadata,
         crate::queued_item::QueuedSong,
         crate::queued_item::QueuedCoverArt,
@@ -30,9 +30,8 @@ pub async fn some_work(
                                     println!("Updated queued song");
                                     println!("Response: {_inner_response:?}");
 
-                                    let song_type = String::from(
-                                        icarus_meta::detection::song::constants::FLAC_TYPE,
-                                    );
+                                    let song_type =
+                                        String::from(simeta::detection::song::constants::FLAC_TYPE);
 
                                     match crate::api::create_song::create(
                                         app, &metadata, user_id, &song_type,
@@ -104,10 +103,10 @@ pub async fn prep_song(
             // Process data here...
             match crate::api::parsing::parse_response_into_bytes(response).await {
                 Ok(song_bytes) => {
-                    let song = icarus_models::song::Song {
-                        directory: icarus_envy::environment::get_root_directory().value,
-                        filename: icarus_models::song::generate_filename(
-                            icarus_models::types::MusicType::FlacExtension,
+                    let song = simodels::song::Song {
+                        directory: sienvy::environment::get_root_directory().value,
+                        filename: simodels::song::generate_filename(
+                            simodels::types::MusicType::FlacExtension,
                             true,
                         )
                         .unwrap(),
@@ -223,18 +222,18 @@ async fn init_queued_coverart(
     bytes: Vec<u8>,
 ) -> crate::queued_item::QueuedCoverArt {
     // TODO: Consider separating song and coverart when saving to the filesystem
-    let covart_type = if file_type == icarus_meta::detection::coverart::constants::PNG_TYPE {
-        icarus_models::types::CoverArtType::PngExtension
-    } else if file_type == icarus_meta::detection::coverart::constants::JPEG_TYPE {
-        icarus_models::types::CoverArtType::JpegExtension
-    } else if file_type == icarus_meta::detection::coverart::constants::JPG_TYPE {
-        icarus_models::types::CoverArtType::JpgExtension
+    let covart_type = if file_type == simeta::detection::coverart::constants::PNG_TYPE {
+        simodels::types::CoverArtType::PngExtension
+    } else if file_type == simeta::detection::coverart::constants::JPEG_TYPE {
+        simodels::types::CoverArtType::JpegExtension
+    } else if file_type == simeta::detection::coverart::constants::JPG_TYPE {
+        simodels::types::CoverArtType::JpgExtension
     } else {
-        icarus_models::types::CoverArtType::None
+        simodels::types::CoverArtType::None
     };
-    let coverart = icarus_models::coverart::CoverArt {
-        directory: icarus_envy::environment::get_root_directory().value,
-        filename: match icarus_models::coverart::generate_filename(covart_type, true) {
+    let coverart = simodels::coverart::CoverArt {
+        directory: sienvy::environment::get_root_directory().value,
+        filename: match simodels::coverart::generate_filename(covart_type, true) {
             Ok(filename) => filename,
             Err(err) => {
                 eprintln!("Error generating CoverArt filename: {err:?}");
@@ -255,8 +254,8 @@ async fn init_queued_coverart(
 }
 
 pub async fn cleanup(
-    song: &icarus_models::song::Song,
-    coverart: &icarus_models::coverart::CoverArt,
+    song: &simodels::song::Song,
+    coverart: &simodels::coverart::CoverArt,
 ) -> Result<(), std::io::Error> {
     match song.remove_from_filesystem() {
         Ok(_) => {}

@@ -162,7 +162,7 @@ pub mod service_token {
         #[derive(Debug, serde::Deserialize, serde::Serialize)]
         pub struct Response {
             pub message: String,
-            pub data: Vec<icarus_models::login_result::LoginResult>,
+            pub data: Vec<simodels::login_result::LoginResult>,
         }
     }
 }
@@ -172,7 +172,7 @@ pub mod refresh_token {
         #[derive(Debug, serde::Deserialize, serde::Serialize)]
         pub struct Response {
             pub message: String,
-            pub data: Vec<icarus_models::login_result::LoginResult>,
+            pub data: Vec<simodels::login_result::LoginResult>,
         }
     }
 }
@@ -253,7 +253,7 @@ pub mod create_song {
         #[derive(Debug, serde::Deserialize, serde::Serialize)]
         pub struct Response {
             pub message: String,
-            pub data: Vec<icarus_models::song::Song>,
+            pub data: Vec<simodels::song::Song>,
         }
     }
 }
@@ -261,7 +261,7 @@ pub mod create_song {
 pub mod create_coverart {
     pub async fn create(
         app: &crate::config::App,
-        song: &icarus_models::song::Song,
+        song: &simodels::song::Song,
         queued_coverart: &crate::queued_item::QueuedCoverArt,
     ) -> Result<reqwest::Response, reqwest::Error> {
         let client = reqwest::Client::builder().build()?;
@@ -284,7 +284,7 @@ pub mod create_coverart {
         #[derive(Debug, serde::Deserialize, serde::Serialize)]
         pub struct Response {
             pub message: String,
-            pub data: Vec<icarus_models::coverart::CoverArt>,
+            pub data: Vec<simodels::coverart::CoverArt>,
         }
     }
 }

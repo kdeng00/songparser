@@ -1,4 +1,4 @@
-# Songparser
+# songparser
 A service that edits the metadata of a queued song and populates it with data.
 
 
@@ -11,10 +11,10 @@ it can be changed.
 
 The `SERVICE_PASSPHRASE` env variable should not be changed, but it could be changed. The 
 value for this variable should match the value in the `passphrase` table. This would be
-found in the `icarus_auth` project.
+found in the `soaricarus_auth` project.
 
 Ensure that the URLs for the two APIs are correctly set for the respective env variables
-`ICARUS_BASE_API_URL` for Icarus API and `ICARUS_AUTH_BASE_API_URL` for `icarus_auth`.
+`SOARICARUS_BASE_API_URL` for soaricarus API and `SOARICARUS_AUTH_BASE_API_URL` for `soaricarus_auth`.
 
 If the values are properly set, next is to build the image. The docker image should be
 built from the main icarus web API.
