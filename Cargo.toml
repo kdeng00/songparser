@@ -1,20 +1,20 @@
 [package]
 name = "songparser"
-version = "0.6.1"
+version = "0.6.2"
 edition = "2024"
 rust-version = "1.95"
 license = "MIT"
 description = "Service to parse songs queued for processing"
 
 [dependencies]
-tokio = { version = "1.52.3", features = ["full"] }
-futures = { version = "0.3.32" }
+tokio = { version = "1.53.1", features = ["full"] }
+futures = { version = "0.3.34" }
 reqwest = { version = "0.13.4", features = ["json", "stream", "multipart"] }
 openssl = { version = "0.10.81", features = ["vendored"] }
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = { version = "1.0.150" }
-time = { version = "0.3.53", features = ["macros", "serde"] }
-uuid = { version = "1.23.5", features = ["v4", "serde"] }
-simeta = { git = "ssh://git@git.kundeng.us/phoenix/simeta.git", tag = "v0.6.1-main-b690995806-680" }
-simodels = { git = "ssh://git@git.kundeng.us/phoenix/simodels.git", tag = "v0.11.3-main-fe9d101bd0-111" }
-sienvy = { git = "ssh://git@git.kundeng.us/phoenix/sienvy.git", tag = "v0.8.0-main-d06c8fdf49-006" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.151" }
+time = { version = "0.3.55", features = ["macros", "serde"] }
+uuid = { version = "1.24.1", features = ["v4", "serde"] }
+simeta = { git = "ssh://git@git.kundeng.us/phoenix/simeta.git", tag = "v0.6.2" }
+simodels = { git = "ssh://git@git.kundeng.us/phoenix/simodels.git", tag = "v0.11.4" }
+sienvy = { git = "ssh://git@git.kundeng.us/phoenix/sienvy.git", tag = "v0.8.1" }
