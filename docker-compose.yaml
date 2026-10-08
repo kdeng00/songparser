@@ -1,5 +1,3 @@
-version: '3.8' # Use a recent version
-
 services:
   songparser:
     build:
