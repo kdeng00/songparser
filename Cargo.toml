@@ -1,20 +1,20 @@
 [package]
 name = "songparser"
-version = "0.6.3"
+version = "0.6.4"
 edition = "2024"
 rust-version = "1.95"
 license = "MIT"
 description = "Service to parse songs queued for processing"
 
 [dependencies]
-tokio = { version = "1.53.2", features = ["full"] }
+tokio = { version = "1.54.1", features = ["full"] }
 futures = { version = "0.3.34" }
 reqwest = { version = "0.13.5", features = ["json", "stream", "multipart"] }
 openssl = { version = "0.10.81", features = ["vendored"] }
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = { version = "1.0.151" }
+serde_json = { version = "1.0.154" }
 time = { version = "0.3.55", features = ["macros", "serde"] }
-uuid = { version = "1.27.0", features = ["v4", "serde"] }
+uuid = { version = "1.29.0", features = ["v4", "serde"] }
 simeta = { git = "ssh://git@git.kundeng.us/phoenix/simeta.git", tag = "v0.6.3" }
 simodels = { git = "ssh://git@git.kundeng.us/phoenix/simodels.git", tag = "v0.11.6" }
 sienvy = { git = "ssh://git@git.kundeng.us/phoenix/sienvy.git", tag = "v0.8.2" }
