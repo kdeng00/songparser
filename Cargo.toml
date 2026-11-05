@@ -17,4 +17,4 @@ time = { version = "0.3.55", features = ["macros", "serde"] }
 uuid = { version = "1.29.0", features = ["v4", "serde"] }
 simeta = { git = "ssh://git@git.kundeng.us/phoenix/simeta.git", tag = "v0.6.3" }
 simodels = { git = "ssh://git@git.kundeng.us/phoenix/simodels.git", tag = "v0.11.9-9-43cc4defbb-111" }
-sienvy = { git = "ssh://git@git.kundeng.us/phoenix/sienvy.git", tag = "v0.8.2" }
+sienvy = { git = "ssh://git@git.kundeng.us/phoenix/sienvy.git", tag = "v0.8.3" }
