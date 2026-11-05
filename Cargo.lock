@@ -1527,8 +1527,8 @@ checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 
 [[package]]
 name = "simeta"
-version = "0.6.3"
-source = "git+ssh://git@git.kundeng.us/phoenix/simeta.git?tag=v0.6.3#1bec08de7cb6533e7d9ddb89a00c7d34667f156c"
+version = "0.6.4"
+source = "git+ssh://git@git.kundeng.us/phoenix/simeta.git?tag=v0.6.4#1c0ad7983d2eab20de9e724105e8f894f8fb871f"
 dependencies = [
  "imghdr",
  "infer",
