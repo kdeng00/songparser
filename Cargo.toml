@@ -10,7 +10,7 @@ description = "Service to parse songs queued for processing"
 tokio = { version = "1.54.1", features = ["full"] }
 futures = { version = "0.3.34" }
 reqwest = { version = "0.13.5", features = ["json", "stream", "multipart"] }
-openssl = { version = "0.10.81", features = ["vendored"] }
+openssl = { version = "0.10.82", features = ["vendored"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154" }
 time = { version = "0.3.55", features = ["macros", "serde"] }
