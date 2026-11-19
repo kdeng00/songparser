@@ -1,6 +1,6 @@
 [package]
 name = "songparser"
-version = "0.6.5"
+version = "0.6.7"
 edition = "2024"
 rust-version = "1.95"
 license = "MIT"
@@ -14,7 +14,7 @@ openssl = { version = "0.10.82", features = ["vendored"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154" }
 time = { version = "0.3.55", features = ["macros", "serde"] }
-uuid = { version = "1.29.0", features = ["v4", "serde"] }
-simeta = { git = "ssh://git@git.kundeng.us/phoenix/simeta.git", tag = "v0.6.4" }
-simodels = { git = "ssh://git@git.kundeng.us/phoenix/simodels.git", tag = "v0.11.9" }
-sienvy = { git = "ssh://git@git.kundeng.us/phoenix/sienvy.git", tag = "v0.8.3" }
+uuid = { version = "1.29.3", features = ["v4", "serde"] }
+simeta = { git = "ssh://git@git.kundeng.us/phoenix/simeta.git", tag = "v0.6.5" }
+simodels = { git = "ssh://git@git.kundeng.us/phoenix/simodels.git", tag = "v0.11.20" }
+sienvy = { git = "ssh://git@git.kundeng.us/phoenix/sienvy.git", tag = "v0.8.4" }

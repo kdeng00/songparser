@@ -3,10 +3,10 @@ name: songparser
 on:
   push:
     branches:
-      - main 
+      - main
   pull_request:
     branches:
-      - main 
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -15,12 +15,12 @@ concurrency:
 jobs:
   check:
     name: Check
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: 1.99
+          toolchain: 1.99.1
       - uses: Swatinem/rust-cache@v2
       - run: |
           mkdir -p ~/.ssh
@@ -33,12 +33,12 @@ jobs:
 
   fmt:
     name: Rustfmt
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: 1.99
+          toolchain: 1.99.1
       - uses: Swatinem/rust-cache@v2
       - run: rustup component add rustfmt
       - run: |
@@ -52,12 +52,12 @@ jobs:
 
   clippy:
     name: Clippy
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: 1.99
+          toolchain: 1.99.1
       - uses: Swatinem/rust-cache@v2
       - run: rustup component add clippy
       - run: |
@@ -71,12 +71,12 @@ jobs:
 
   build:
     name: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: 1.99
+          toolchain: 1.99.1
       - uses: Swatinem/rust-cache@v2
       - run: |
           mkdir -p ~/.ssh
